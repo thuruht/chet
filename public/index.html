@@ -114,6 +114,171 @@
         font-size: 0.75rem;
         color: var(--text-light);
         margin-top: 0.25rem;
+        line-height: 1.4;
+      }
+
+      .parameter-info strong {
+        color: var(--text-color);
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      .action-btn {
+        width: 100%;
+        padding: 0.5rem;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        margin-bottom: 0.5rem;
+      }
+
+      .action-btn:hover {
+        background: var(--primary-hover);
+      }
+
+      .items-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: white;
+      }
+
+      .list-item {
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.85rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .list-item:last-child {
+        border-bottom: none;
+      }
+
+      .list-item:hover {
+        background: var(--light-bg);
+      }
+
+      .list-item-title {
+        font-weight: 500;
+        color: var(--text-color);
+      }
+
+      .list-item-actions {
+        display: flex;
+        gap: 0.25rem;
+      }
+
+      .list-item-btn {
+        padding: 0.2rem 0.4rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 3px;
+        font-size: 0.75rem;
+        cursor: pointer;
+      }
+
+      .list-item-btn:hover {
+        background: var(--light-bg);
+      }
+
+      .list-item-btn.use {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+      }
+
+      .list-item-btn.delete {
+        background: #dc2626;
+        color: white;
+        border-color: #dc2626;
+      }
+
+      .save-response-btn {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+        cursor: pointer;
+        margin-top: 0.5rem;
+      }
+
+      .save-response-btn:hover {
+        background: var(--primary-hover);
+      }
+
+      /* Modal styles */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+      }
+
+      .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 2rem;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+      }
+
+      .modal-content h3 {
+        margin-bottom: 1rem;
+        color: var(--text-color);
+      }
+
+      .modal-content input,
+      .modal-content textarea,
+      .modal-content select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        font-family: inherit;
+      }
+
+      .modal-content textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+
+      .modal-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+      }
+
+      .modal-btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+
+      .modal-btn.primary {
+        background: var(--primary-color);
+        color: white;
+      }
+
+      .modal-btn.secondary {
+        background: var(--light-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
       }
 
       .chat-container {
@@ -227,8 +392,8 @@
   </head>
   <body>
     <header>
-      <h1>Cloudflare AI Chat</h1>
-      <p>Powered by Cloudflare Workers AI with Multiple Models</p>
+      <h1>C.H.E.T.</h1>
+      <p>Chat Helper for Every Task</p>
     </header>
 
     <div class="app-container">
@@ -248,25 +413,97 @@
         <div class="parameter-group">
           <label for="max-tokens">Max Tokens: <span id="max-tokens-value">1024</span></label>
           <input type="range" id="max-tokens" min="256" max="4096" value="1024" step="64">
-          <div class="parameter-info">Maximum tokens to generate</div>
+          <div class="parameter-info">
+            <strong>Maximum tokens to generate in the response.</strong><br>
+            Higher values allow longer responses but cost more. Each model has different limits.
+          </div>
         </div>
 
         <div class="parameter-group">
           <label for="temperature">Temperature: <span id="temperature-value">0.6</span></label>
           <input type="range" id="temperature" min="0" max="5" value="0.6" step="0.1">
-          <div class="parameter-info">Controls randomness (0 = deterministic, 5 = very creative)</div>
+          <div class="parameter-info">
+            <strong>Controls creativity and randomness.</strong><br>
+            0 = Deterministic, focused responses<br>
+            1 = Balanced creativity<br>
+            2+ = More creative, less predictable
+          </div>
         </div>
 
         <div class="parameter-group">
           <label for="top-p">Top P: <span id="top-p-value">0.9</span></label>
           <input type="range" id="top-p" min="0" max="2" value="0.9" step="0.05">
-          <div class="parameter-info">Nucleus sampling threshold</div>
+          <div class="parameter-info">
+            <strong>Nucleus sampling threshold.</strong><br>
+            Controls diversity by limiting token choices to cumulative probability mass. Lower = more focused, higher = more diverse.
+          </div>
         </div>
 
         <div class="parameter-group">
           <label for="top-k">Top K: <span id="top-k-value">40</span></label>
           <input type="range" id="top-k" min="1" max="50" value="40" step="1">
-          <div class="parameter-info">Limit vocabulary to top K tokens</div>
+          <div class="parameter-info">
+            <strong>Vocabulary filtering.</strong><br>
+            Limits AI to choose from top K most probable words. Lower = more focused, higher = more variety.
+          </div>
+        </div>
+
+        <div class="parameter-group">
+          <label for="repetition-penalty">Repetition Penalty: <span id="repetition-penalty-value">1.1</span></label>
+          <input type="range" id="repetition-penalty" min="0" max="2" value="1.1" step="0.1">
+          <div class="parameter-info">
+            <strong>Prevents repetitive text.</strong><br>
+            1.0 = No penalty, >1.0 = Discourage repetition, <1.0 = Allow repetition.
+          </div>
+        </div>
+
+        <div class="parameter-group">
+          <label for="frequency-penalty">Frequency Penalty: <span id="frequency-penalty-value">0.0</span></label>
+          <input type="range" id="frequency-penalty" min="-2" max="2" value="0.0" step="0.1">
+          <div class="parameter-info">
+            <strong>Reduces likelihood of repeating exact phrases.</strong><br>
+            Positive values discourage repetition, negative values encourage it.
+          </div>
+        </div>
+
+        <div class="parameter-group">
+          <label for="presence-penalty">Presence Penalty: <span id="presence-penalty-value">0.0</span></label>
+          <input type="range" id="presence-penalty" min="-2" max="2" value="0.0" step="0.1">
+          <div class="parameter-info">
+            <strong>Encourages introducing new topics.</strong><br>
+            Positive values promote new concepts, negative values focus on current topics.
+          </div>
+        </div>
+
+        <div class="parameter-group">
+          <label for="seed">Seed (Optional): </label>
+          <input type="number" id="seed" min="1" max="9999999999" placeholder="Random" style="width: 100%; padding: 0.4rem;">
+          <div class="parameter-info">
+            <strong>Reproducibility control.</strong><br>
+            Set a number for consistent outputs with same inputs. Leave empty for random results.
+          </div>
+        </div>
+
+        <!-- Saved Prompts Section -->
+        <h2>Saved Prompts</h2>
+        <div class="prompts-section">
+          <div class="parameter-group">
+            <button id="add-prompt-btn" class="action-btn">+ Add Prompt</button>
+            <div id="prompts-list" class="items-list">
+              <!-- Prompts will be loaded here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- MCP Servers Section -->
+        <h2>MCP Servers</h2>
+        <div class="mcp-section">
+          <div class="parameter-group">
+            <button id="add-mcp-btn" class="action-btn">+ Add Server</button>
+            <div id="mcp-list" class="items-list">
+              <!-- MCP servers will be loaded here -->
+            </div>
+          </div>
         </div>
       </div>
 
@@ -300,8 +537,43 @@
     </div>
 
     <footer>
-      <p>Cloudflare Workers AI Chat Template &copy; 2025</p>
+     template by cloudflare, modded by jojo crine aka thuruht
     </footer>
+
+    <!-- Modals -->
+    <!-- Prompt Modal -->
+    <div id="prompt-modal" class="modal">
+      <div class="modal-content">
+        <h3 id="prompt-modal-title">Add Prompt</h3>
+        <input type="text" id="prompt-name" placeholder="Prompt name">
+        <textarea id="prompt-content" placeholder="Enter your prompt here..."></textarea>
+        <input type="text" id="prompt-tags" placeholder="Tags (comma separated)">
+        <div class="modal-actions">
+          <button class="modal-btn secondary" id="cancel-prompt">Cancel</button>
+          <button class="modal-btn primary" id="save-prompt">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP Server Modal -->
+    <div id="mcp-modal" class="modal">
+      <div class="modal-content">
+        <h3 id="mcp-modal-title">Add MCP Server</h3>
+        <input type="text" id="mcp-name" placeholder="Server name">
+        <textarea id="mcp-command" placeholder="Command (JSON array format, e.g., ['node', 'server.js'])"></textarea>
+        <input type="text" id="mcp-cwd" placeholder="Working directory (optional)">
+        <textarea id="mcp-env" placeholder="Environment variables (JSON format, optional)"></textarea>
+        <textarea id="mcp-args" placeholder="Arguments (JSON format, optional)"></textarea>
+        <input type="text" id="mcp-description" placeholder="Description (optional)">
+        <label>
+          <input type="checkbox" id="mcp-enabled" checked> Enabled
+        </label>
+        <div class="modal-actions">
+          <button class="modal-btn secondary" id="cancel-mcp">Cancel</button>
+          <button class="modal-btn primary" id="save-mcp">Save</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Chat app script -->
     <script src="chat.js"></script>
