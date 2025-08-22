@@ -67,7 +67,7 @@ let currentModel = null;
 let chatHistory = [
   {
     role: "assistant",
-    content: "Hello! I'm an LLM chat app powered by Cloudflare Workers AI. Choose a model from the sidebar and start chatting!",
+    content: "Hello! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!",
   },
 ];
 let isProcessing = false;
