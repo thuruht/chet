@@ -17,5 +17,8 @@
   "ai": {
     "binding": "AI"
   },
+  "routes": [
+    "chet.distorted.work/*"
+  ],
   "upload_source_maps": true
 }
