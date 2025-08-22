@@ -20,7 +20,7 @@
   "kv_namespaces": [
     {
       "binding": "PHREAK_KV",
-      "id": "replace-with-your-phreak-kv-namespace-id",    }
+      "id": "30b28eb99b98432a9afc8da089471bfd",    }
   ],
   "routes": [
     "chet.distorted.work/*"
