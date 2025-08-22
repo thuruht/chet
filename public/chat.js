@@ -83,14 +83,17 @@ async function initialize() {
   await loadMCPServers();
   setupEventListeners();
   updateParameterDisplays();
+  createToastContainer();
 }
 
 // Load available models from the API
 async function loadModels() {
   try {
+    showToast("Loading available models...", "info", 2000);
+    
     const response = await fetch("/api/models");
     if (!response.ok) {
-      throw new Error("Failed to load models");
+      throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
     }
     
     const models = await response.json();
@@ -114,12 +117,16 @@ async function loadModels() {
       const defaultModelKey = models[0].key;
       modelSelect.value = defaultModelKey;
       selectModel(defaultModelKey);
+      showToast(`Loaded ${models.length} models successfully!`, "success");
+    } else {
+      throw new Error("No models available");
     }
     
   } catch (error) {
     console.error("Error loading models:", error);
-    modelSelect.innerHTML = '<option value="">Failed to load models</option>';
-    modelInfo.textContent = "Failed to load model information";
+    modelSelect.innerHTML = '<option value="">❌ Failed to load models</option>';
+    modelInfo.innerHTML = `<strong style="color: #FF6B6B;">❌ Error loading models:</strong><br>${error.message}<br><small>Check console for details.</small>`;
+    showToast("Failed to load models! Check your internet connection.", "error", 5000);
   }
 }
 
@@ -133,13 +140,34 @@ function setupEventListeners() {
   });
 
   // Parameter sliders
-  maxTokensSlider.addEventListener("input", updateParameterDisplays);
-  temperatureSlider.addEventListener("input", updateParameterDisplays);
-  topPSlider.addEventListener("input", updateParameterDisplays);
-  topKSlider.addEventListener("input", updateParameterDisplays);
-  repetitionPenaltySlider.addEventListener("input", updateParameterDisplays);
-  frequencyPenaltySlider.addEventListener("input", updateParameterDisplays);
-  presencePenaltySlider.addEventListener("input", updateParameterDisplays);
+  maxTokensSlider.addEventListener("input", () => {
+    updateParameterDisplays();
+    showToast(`Max tokens: ${maxTokensSlider.value}`, "info", 1500);
+  });
+  temperatureSlider.addEventListener("input", () => {
+    updateParameterDisplays();
+    showToast(`Temperature: ${parseFloat(temperatureSlider.value).toFixed(1)}`, "info", 1500);
+  });
+  topPSlider.addEventListener("input", () => {
+    updateParameterDisplays();
+    showToast(`Top P: ${parseFloat(topPSlider.value).toFixed(2)}`, "info", 1500);
+  });
+  topKSlider.addEventListener("input", () => {
+    updateParameterDisplays();
+    showToast(`Top K: ${topKSlider.value}`, "info", 1500);
+  });
+  repetitionPenaltySlider.addEventListener("input", () => {
+    updateParameterDisplays();
+    showToast(`Repetition penalty: ${parseFloat(repetitionPenaltySlider.value).toFixed(1)}`, "info", 1500);
+  });
+  frequencyPenaltySlider.addEventListener("input", () => {
+    updateParameterDisplays();
+    showToast(`Frequency penalty: ${parseFloat(frequencyPenaltySlider.value).toFixed(1)}`, "info", 1500);
+  });
+  presencePenaltySlider.addEventListener("input", () => {
+    updateParameterDisplays();
+    showToast(`Presence penalty: ${parseFloat(presencePenaltySlider.value).toFixed(1)}`, "info", 1500);
+  });
 
   // Chat input
   userInput.addEventListener("input", function () {
@@ -178,6 +206,7 @@ function selectModel(modelKey) {
   const model = availableModels[modelKey];
   if (!model) return;
   
+  console.log(`Switching to model: ${model.name}`);
   currentModel = model;
   
   // Create detailed model description
@@ -194,9 +223,10 @@ function selectModel(modelKey) {
     specialization = "🧠 General Purpose Powerhouse";
   }
   
-  // Update model info display
+  // Update model info display with visual feedback
+  modelInfo.style.background = "linear-gradient(135deg, #90EE90 0%, #98FB98 100%)";
   modelInfo.innerHTML = `
-    <strong>${model.name}</strong><br>
+    <strong>✅ ${model.name} (Active)</strong><br>
     ${specialization ? specialization + '<br>' : ''}
     ${model.description}<br>
     <small>
@@ -207,12 +237,24 @@ function selectModel(modelKey) {
     </small>
   `;
   
+  // Reset background color after 2 seconds
+  setTimeout(() => {
+    modelInfo.style.background = "linear-gradient(135deg, var(--assistant-msg-bg) 0%, #e8d5e8 100%)";
+  }, 2000);
+  
   // Update current model indicator
   currentModelDisplay.textContent = `Model: ${model.name}`;
+  currentModelDisplay.style.background = "linear-gradient(135deg, #32CD32 0%, var(--accent-color) 100%)";
+  setTimeout(() => {
+    currentModelDisplay.style.background = "linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%)";
+  }, 2000);
   
   // Update parameter ranges and defaults
   updateParameterRanges(model);
   updateParameterDisplays();
+  
+  // Show toast notification
+  showToast(`Switched to ${model.name}`, "success");
 }
 
 // Get use cases for each model
@@ -273,13 +315,33 @@ function updateParameterRanges(model) {
 
 // Update parameter display values
 function updateParameterDisplays() {
-  maxTokensValue.textContent = maxTokensSlider.value;
-  temperatureValue.textContent = parseFloat(temperatureSlider.value).toFixed(1);
-  topPValue.textContent = parseFloat(topPSlider.value).toFixed(2);
-  topKValue.textContent = topKSlider.value;
-  repetitionPenaltyValue.textContent = parseFloat(repetitionPenaltySlider.value).toFixed(1);
-  frequencyPenaltyValue.textContent = parseFloat(frequencyPenaltySlider.value).toFixed(1);
-  presencePenaltyValue.textContent = parseFloat(presencePenaltySlider.value).toFixed(1);
+  const maxTokens = maxTokensSlider.value;
+  const temperature = parseFloat(temperatureSlider.value).toFixed(1);
+  const topP = parseFloat(topPSlider.value).toFixed(2);
+  const topK = topKSlider.value;
+  const repetitionPenalty = parseFloat(repetitionPenaltySlider.value).toFixed(1);
+  const frequencyPenalty = parseFloat(frequencyPenaltySlider.value).toFixed(1);
+  const presencePenalty = parseFloat(presencePenaltySlider.value).toFixed(1);
+
+  // Update display values with visual feedback
+  maxTokensValue.textContent = maxTokens;
+  temperatureValue.textContent = temperature;
+  topPValue.textContent = topP;
+  topKValue.textContent = topK;
+  repetitionPenaltyValue.textContent = repetitionPenalty;
+  frequencyPenaltyValue.textContent = frequencyPenalty;
+  presencePenaltyValue.textContent = presencePenalty;
+
+  // Add visual feedback for changes
+  const values = [maxTokensValue, temperatureValue, topPValue, topKValue, repetitionPenaltyValue, frequencyPenaltyValue, presencePenaltyValue];
+  values.forEach(valueEl => {
+    valueEl.style.color = "#32CD32";
+    valueEl.style.fontWeight = "bold";
+    setTimeout(() => {
+      valueEl.style.color = "";
+      valueEl.style.fontWeight = "";
+    }, 1000);
+  });
 }
 
 // Get current parameter values
@@ -480,9 +542,15 @@ async function loadPrompts() {
       const data = await response.json();
       savedPrompts = data.prompts || [];
       renderPrompts();
+      if (savedPrompts.length > 0) {
+        showToast(`Loaded ${savedPrompts.length} saved prompts`, "success", 2000);
+      }
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
   } catch (error) {
     console.error('Error loading prompts:', error);
+    showToast("Failed to load saved prompts", "error", 3000);
   }
 }
 
@@ -521,6 +589,7 @@ function usePrompt(promptId) {
     userInput.style.height = "auto";
     userInput.style.height = userInput.scrollHeight + "px";
     userInput.focus();
+    showToast(`Using prompt: ${prompt.name}`, "success", 2000);
   }
 }
 
@@ -579,7 +648,7 @@ async function savePrompt() {
   const tags = promptTagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag);
   
   if (!name || !content) {
-    alert('Name and content are required');
+    showToast('Name and content are required', "error", 3000);
     return;
   }
   
@@ -612,12 +681,14 @@ async function savePrompt() {
     if (response.ok) {
       closePromptModal();
       await loadPrompts();
+      showToast(editingPrompt ? 'Prompt updated successfully!' : 'Prompt saved successfully!', "success");
     } else {
-      alert('Failed to save prompt');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to save prompt');
     }
   } catch (error) {
     console.error('Error saving prompt:', error);
-    alert('Failed to save prompt');
+    showToast(`Failed to save prompt: ${error.message}`, "error", 4000);
   }
 }
 
@@ -629,9 +700,15 @@ async function loadMCPServers() {
       const data = await response.json();
       mcpServers = data.servers || [];
       renderMCPServers();
+      if (mcpServers.length > 0) {
+        showToast(`Loaded ${mcpServers.length} MCP servers`, "success", 2000);
+      }
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
   } catch (error) {
     console.error('Error loading MCP servers:', error);
+    showToast("Failed to load MCP servers", "error", 3000);
   }
 }
 
@@ -782,3 +859,66 @@ async function saveMCPServer() {
 
 // Initialize the app when the page loads
 document.addEventListener("DOMContentLoaded", initialize);
+
+// Toast notification system
+function createToastContainer() {
+  if (!document.getElementById('toast-container')) {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      pointer-events: none;
+    `;
+    document.body.appendChild(container);
+  }
+}
+
+function showToast(message, type = 'info', duration = 3000) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  
+  const colors = {
+    success: '#32CD32',
+    error: '#FF6B6B',
+    warning: '#FFD93D',
+    info: '#4ECDC4'
+  };
+  
+  toast.style.cssText = `
+    background: ${colors[type] || colors.info};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    font-weight: 500;
+    font-size: 14px;
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+  `;
+  
+  toast.textContent = message;
+  container.appendChild(toast);
+  
+  // Trigger animation
+  setTimeout(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(0)';
+  }, 10);
+  
+  // Auto remove
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  }, duration);
+}
