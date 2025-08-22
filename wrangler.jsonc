@@ -19,10 +19,8 @@
   },
   "kv_namespaces": [
     {
-      "binding": "CHAT_STORE",
-      "id": "your-kv-namespace-id",
-      "preview_id": "your-preview-kv-namespace-id"
-    }
+      "binding": "PHREAK_KV",
+      "id": "replace-with-your-phreak-kv-namespace-id",    }
   ],
   "routes": [
     "chet.distorted.work/*"

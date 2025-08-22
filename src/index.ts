@@ -400,11 +400,11 @@ async function handleChatRequest(
  */
 async function handleGetPrompts(env: Env): Promise<Response> {
   try {
-    const { keys } = await env.CHAT_STORE.list({ prefix: "prompt:" });
+    const { keys } = await env.PHREAK_KV.list({ prefix: "prompt:" });
     const prompts: SavedPrompt[] = [];
 
     for (const key of keys) {
-      const promptData = await env.CHAT_STORE.get(key.name, "json");
+      const promptData = await env.PHREAK_KV.get(key.name, "json");
       if (promptData) {
         prompts.push(promptData as SavedPrompt);
       }
@@ -445,7 +445,7 @@ async function handleCreatePrompt(request: Request, env: Env): Promise<Response>
       updatedAt: new Date().toISOString(),
     };
 
-    await env.CHAT_STORE.put(`prompt:${prompt.id}`, JSON.stringify(prompt));
+    await env.PHREAK_KV.put(`prompt:${prompt.id}`, JSON.stringify(prompt));
 
     return new Response(JSON.stringify({ prompt }), {
       headers: { "content-type": "application/json" },
@@ -473,7 +473,7 @@ async function handleUpdatePrompt(request: Request, env: Env): Promise<Response>
       });
     }
 
-    const existingPrompt = await env.CHAT_STORE.get(`prompt:${id}`, "json") as SavedPrompt | null;
+    const existingPrompt = await env.PHREAK_KV.get(`prompt:${id}`, "json") as SavedPrompt | null;
     if (!existingPrompt) {
       return new Response(JSON.stringify({ error: "Prompt not found" }), {
         status: 404,
@@ -489,7 +489,7 @@ async function handleUpdatePrompt(request: Request, env: Env): Promise<Response>
       updatedAt: new Date().toISOString(),
     };
 
-    await env.CHAT_STORE.put(`prompt:${id}`, JSON.stringify(updatedPrompt));
+    await env.PHREAK_KV.put(`prompt:${id}`, JSON.stringify(updatedPrompt));
 
     return new Response(JSON.stringify({ prompt: updatedPrompt }), {
       headers: { "content-type": "application/json" },
@@ -518,7 +518,7 @@ async function handleDeletePrompt(request: Request, env: Env): Promise<Response>
       });
     }
 
-    const existingPrompt = await env.CHAT_STORE.get(`prompt:${id}`, "json");
+    const existingPrompt = await env.PHREAK_KV.get(`prompt:${id}`, "json");
     if (!existingPrompt) {
       return new Response(JSON.stringify({ error: "Prompt not found" }), {
         status: 404,
@@ -526,7 +526,7 @@ async function handleDeletePrompt(request: Request, env: Env): Promise<Response>
       });
     }
 
-    await env.CHAT_STORE.delete(`prompt:${id}`);
+    await env.PHREAK_KV.delete(`prompt:${id}`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { "content-type": "application/json" },
@@ -545,11 +545,11 @@ async function handleDeletePrompt(request: Request, env: Env): Promise<Response>
  */
 async function handleGetMCPServers(env: Env): Promise<Response> {
   try {
-    const { keys } = await env.CHAT_STORE.list({ prefix: "mcp:" });
+    const { keys } = await env.PHREAK_KV.list({ prefix: "mcp:" });
     const servers: MCPServer[] = [];
 
     for (const key of keys) {
-      const serverData = await env.CHAT_STORE.get(key.name, "json");
+      const serverData = await env.PHREAK_KV.get(key.name, "json");
       if (serverData) {
         servers.push(serverData as MCPServer);
       }
@@ -602,7 +602,7 @@ async function handleCreateMCPServer(request: Request, env: Env): Promise<Respon
       updatedAt: new Date().toISOString(),
     };
 
-    await env.CHAT_STORE.put(`mcp:${server.id}`, JSON.stringify(server));
+    await env.PHREAK_KV.put(`mcp:${server.id}`, JSON.stringify(server));
 
     return new Response(JSON.stringify({ server }), {
       headers: { "content-type": "application/json" },
@@ -639,7 +639,7 @@ async function handleUpdateMCPServer(request: Request, env: Env): Promise<Respon
       });
     }
 
-    const existingServer = await env.CHAT_STORE.get(`mcp:${id}`, "json") as MCPServer | null;
+    const existingServer = await env.PHREAK_KV.get(`mcp:${id}`, "json") as MCPServer | null;
     if (!existingServer) {
       return new Response(JSON.stringify({ error: "MCP server not found" }), {
         status: 404,
@@ -659,7 +659,7 @@ async function handleUpdateMCPServer(request: Request, env: Env): Promise<Respon
       updatedAt: new Date().toISOString(),
     };
 
-    await env.CHAT_STORE.put(`mcp:${id}`, JSON.stringify(updatedServer));
+    await env.PHREAK_KV.put(`mcp:${id}`, JSON.stringify(updatedServer));
 
     return new Response(JSON.stringify({ server: updatedServer }), {
       headers: { "content-type": "application/json" },
@@ -688,7 +688,7 @@ async function handleDeleteMCPServer(request: Request, env: Env): Promise<Respon
       });
     }
 
-    const existingServer = await env.CHAT_STORE.get(`mcp:${id}`, "json");
+    const existingServer = await env.PHREAK_KV.get(`mcp:${id}`, "json");
     if (!existingServer) {
       return new Response(JSON.stringify({ error: "MCP server not found" }), {
         status: 404,
@@ -696,7 +696,7 @@ async function handleDeleteMCPServer(request: Request, env: Env): Promise<Respon
       });
     }
 
-    await env.CHAT_STORE.delete(`mcp:${id}`);
+    await env.PHREAK_KV.delete(`mcp:${id}`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { "content-type": "application/json" },
