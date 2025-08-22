@@ -19,8 +19,8 @@
   },
   "kv_namespaces": [
     {
-      "binding": "PHREAK_KV",
-      "id": "30b28eb99b98432a9afc8da089471bfd",    }
+      "binding": "CHET_KV",
+      "id": "07fb69cb761049c6ba59250c50135039",    }
   ],
   "routes": [
     "chet.distorted.work/*"
