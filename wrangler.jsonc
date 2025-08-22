@@ -20,7 +20,8 @@
   "kv_namespaces": [
     {
       "binding": "CHET_KV",
-      "id": "07fb69cb761049c6ba59250c50135039",    }
+      "id": "07fb69cb761049c6ba59250c50135039"
+    }
   ],
   "routes": [
     "chet.distorted.work/*"

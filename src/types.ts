@@ -16,7 +16,7 @@ export interface Env {
   /**
    * KV namespace for storing prompts, MCP servers, and other data.
    */
-  PHREAK_KV: KVNamespace;
+  CHET_KV: KVNamespace;
 }
 
 /**
