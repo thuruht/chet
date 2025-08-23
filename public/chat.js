@@ -67,7 +67,7 @@ let currentModel = null;
 let chatHistory = [
   {
     role: "assistant",
-    content: "Hello! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!",
+    content: "Hello, bozo! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!",
   },
 ];
 let isProcessing = false;
@@ -84,6 +84,43 @@ async function initialize() {
   setupEventListeners();
   updateParameterDisplays();
   createToastContainer();
+  setupAccordionSections();
+}
+
+// Setup accordion sections
+function setupAccordionSections() {
+  const sectionToggles = document.querySelectorAll('.section-toggle');
+  
+  // Make all sections expanded by default
+  document.querySelectorAll('.sidebar-section').forEach(section => {
+    section.style.maxHeight = section.scrollHeight + 'px';
+  });
+  
+  sectionToggles.forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      const targetId = toggle.getAttribute('data-target');
+      const targetSection = document.getElementById(targetId);
+      
+      if (!targetSection) return;
+      
+      const isCollapsed = targetSection.classList.contains('collapsed');
+      
+      // Toggle the section
+      if (isCollapsed) {
+        // Expand
+        toggle.classList.remove('collapsed');
+        targetSection.classList.remove('collapsed');
+        targetSection.style.maxHeight = targetSection.scrollHeight + 'px';
+        showToast(`Expanded ${toggle.textContent} section`, "info", 1000);
+      } else {
+        // Collapse
+        toggle.classList.add('collapsed');
+        targetSection.classList.add('collapsed');
+        targetSection.style.maxHeight = '0';
+        showToast(`Collapsed ${toggle.textContent} section`, "info", 1000);
+      }
+    });
+  });
 }
 
 // Load available models from the API
@@ -198,6 +235,16 @@ function setupEventListeners() {
   window.addEventListener("click", (e) => {
     if (e.target === promptModal) closePromptModal();
     if (e.target === mcpModal) closeMCPModal();
+  });
+  
+  // Accordion functionality
+  document.querySelectorAll('.sidebar-section').forEach(section => {
+    section.addEventListener('transitionend', function() {
+      // Update max-height when content changes
+      if (!this.classList.contains('collapsed')) {
+        this.style.maxHeight = this.scrollHeight + 'px';
+      }
+    });
   });
 }
 
@@ -423,42 +470,83 @@ async function sendMessage() {
     }
 
     // Process streaming response
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let responseText = "";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let responseText = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
+      while (true) {
+        const { done, value } = await reader.read();
 
-      if (done) {
-        break;
-      }
+        if (done) {
+          break;
+        }
 
-      // Decode chunk
-      const chunk = decoder.decode(value, { stream: true });
+        // Decode chunk
+        const chunk = decoder.decode(value, { stream: true });
 
-      // Process SSE format
-      const lines = chunk.split("\n");
-      for (const line of lines) {
-        try {
-          const jsonData = JSON.parse(line);
-          if (jsonData.response) {
-            // Append new content to existing text
-            responseText += jsonData.response;
-            assistantMessageEl.querySelector("p").textContent = responseText;
+        // Process SSE format
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          try {
+            const jsonData = JSON.parse(line);
+            if (jsonData.response) {
+              // Append new content to existing text
+              responseText += jsonData.response;
+              
+              // Replace the response with one that addresses the user as "bozo"
+              let displayText = responseText;
+              
+              // Check if we're at the beginning of a response to add "bozo" greeting
+              if (displayText.length < 100 && !displayText.includes("bozo")) {
+                // Add "bozo" to the start of the response if appropriate
+                if (displayText.includes("Hello") || displayText.includes("Hi ")) {
+                  displayText = displayText.replace(/(Hello|Hi)([!,.\s])/i, "$1, bozo$2");
+                } else {
+                  // Try to find the first sentence and add bozo there
+                  const firstSentenceEnd = displayText.search(/[.!?]/);
+                  if (firstSentenceEnd > 0 && firstSentenceEnd < 50) {
+                    displayText = displayText.slice(0, firstSentenceEnd) + ", bozo" + displayText.slice(firstSentenceEnd);
+                  } else {
+                    displayText = "Hey bozo! " + displayText;
+                  }
+                }
+              }
+              
+              // Ensure "bozo" appears at least once in longer responses
+              if (displayText.length > 100 && !displayText.toLowerCase().includes("bozo")) {
+                displayText = displayText.replace(/\. ([A-Z])/g, ". Listen bozo, $1");
+              }
+              
+              assistantMessageEl.querySelector("p").textContent = displayText;
 
-            // Scroll to bottom
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+              // Scroll to bottom
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+          } catch (e) {
+            // Ignore JSON parse errors for incomplete chunks
           }
-        } catch (e) {
-          // Ignore JSON parse errors for incomplete chunks
+        }
+      }    // Add completed response to chat history
+    if (responseText) {
+      // We need to modify what gets stored in the chat history as well
+      let bozoResponseText = responseText;
+      
+      // Make sure "bozo" appears in the stored response too
+      if (!bozoResponseText.toLowerCase().includes("bozo")) {
+        if (bozoResponseText.includes("Hello") || bozoResponseText.includes("Hi ")) {
+          bozoResponseText = bozoResponseText.replace(/(Hello|Hi)([!,.\s])/i, "$1, bozo$2");
+        } else {
+          // Try to find a good place to insert "bozo"
+          const firstSentenceEnd = bozoResponseText.search(/[.!?]/);
+          if (firstSentenceEnd > 0 && firstSentenceEnd < 50) {
+            bozoResponseText = bozoResponseText.slice(0, firstSentenceEnd) + ", bozo" + bozoResponseText.slice(firstSentenceEnd);
+          } else {
+            bozoResponseText = "Hey bozo! " + bozoResponseText;
+          }
         }
       }
-    }
-
-    // Add completed response to chat history
-    if (responseText) {
-      chatHistory.push({ role: "assistant", content: responseText });
+      
+      chatHistory.push({ role: "assistant", content: bozoResponseText });
     }
   } catch (error) {
     console.error("Error:", error);
