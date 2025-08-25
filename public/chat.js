@@ -202,6 +202,26 @@ function setupTheme() {
     showToast(`Theme set to ${themeSelect.options[themeSelect.selectedIndex].text}`, 'success', 1000);
   });
 
+  // Keep the select visible after click by toggling an 'expanded' class on the container
+  try {
+    const container = themeSelect.closest('.theme-select-container');
+    if (container) {
+      themeSelect.addEventListener('focus', () => container.classList.add('expanded'));
+      themeSelect.addEventListener('blur', () => setTimeout(() => container.classList.remove('expanded'), 150));
+
+      // Clicking the toggle should also add the expanded class briefly so user can choose
+      if (themeToggle) {
+        themeToggle.addEventListener('click', (ev) => {
+          container.classList.add('expanded');
+          // If select has options, focus it so keyboard users can navigate
+          try { themeSelect.focus(); } catch (e) {}
+          // Remove expanded after a short time if user doesn't interact
+          setTimeout(() => { if (document.activeElement !== themeSelect) container.classList.remove('expanded'); }, 2000);
+        });
+      }
+    }
+  } catch (e) {}
+
   // Light/Dark toggle: map of light <-> dark counterparts
   const toggleMap = {
     'theme-solarized-light': 'theme-solarized-dark',

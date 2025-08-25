@@ -68,7 +68,9 @@
   padding: 6px 8px;
   border-radius: 6px;
 }
-.theme-select-container:hover select {
+.theme-select-container:hover select,
+.theme-select-container:focus-within select,
+.theme-select-container.expanded select {
   display: inline-block;
 }
 .theme-select-container select:focus {
@@ -206,6 +208,10 @@
   --border-color: #063a2b;
   --text-color: #e6fff0;        /* pale green text */
   --text-light: #bfead1;
+  --user-msg-bg: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  --assistant-msg-bg: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(255,255,255,0.01));
+  --primary-hover: #0f8f80;
+  --accent-hover: #b26df5;
 }
 
 * {
