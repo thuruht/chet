@@ -1377,44 +1377,30 @@ function createToastContainer() {
 function showToast(message, type = 'info', duration = 3000) {
   // Ensure container exists (fixes 'container is null' errors)
   let container = document.getElementById('toast-container');
-            if (jsonData.meta) {
-              // Authoritative server-side metadata arrived
-              serverMeta = jsonData.meta;
-              lastServerMeta = serverMeta;
-              // Update the inspector
-              if (window.__chetInspector && typeof window.__chetInspector.setResponseMeta === 'function') {
-                try { window.__chetInspector.setResponseMeta(serverMeta); } catch (e) {}
-              }
+  if (!container) {
+    createToastContainer();
+    container = document.getElementById('toast-container');
+  }
+  if (!container) {
+    console.error('Toast container not found and could not be created.');
+    return;
+  }
 
-              // Build a concise meta UI with a "View metadata" button (opens modal)
-              try {
-                metaEl.innerHTML = '';
-                const iconSpan = document.createElement('span');
-                iconSpan.className = 'meta-icon';
-                iconSpan.textContent = '🤖';
-                metaEl.appendChild(iconSpan);
-
-                const mainText = document.createElement('span');
-                mainText.textContent = `Server: ${serverMeta.modelKey} (${serverMeta.modelId})`;
-                metaEl.appendChild(mainText);
-
-                const viewBtn = document.createElement('button');
-                viewBtn.textContent = 'View server metadata';
-                viewBtn.className = 'list-item-btn';
-                viewBtn.style.marginLeft = '8px';
-                viewBtn.addEventListener('click', (ev) => {
-                  ev.stopPropagation();
-                  try { document.getElementById('server-meta-json').textContent = JSON.stringify(serverMeta, null, 2); } catch (err) { document.getElementById('server-meta-json').textContent = String(serverMeta); }
-                  document.getElementById('server-meta-modal').style.display = 'block';
-                });
-                metaEl.appendChild(viewBtn);
-
-                const ts = document.createElement('span');
-                ts.className = 'meta-ts';
-                ts.textContent = new Date().toLocaleTimeString();
-                metaEl.appendChild(ts);
-              } catch (e) {}
-            }
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const colors = {
+    info: '#333',
+    success: 'darkgreen',
+    error: 'darkred',
+  };
+  
+  toast.style.backgroundColor = colors[type] || colors.info;
+  toast.style.color = '#fff';
+  toast.style.padding = '10px 20px';
+  toast.style.marginBottom = '5px';
+  toast.style.borderRadius = '5px';
+  toast.style.opacity = '0';
   toast.style.transform = 'translateX(100%)';
   toast.style.transition = 'all 0.3s ease';
 
