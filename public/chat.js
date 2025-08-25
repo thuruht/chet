@@ -96,7 +96,16 @@ function setupAccordionSections() {
     section.style.maxHeight = section.scrollHeight + 'px';
   });
   
+  // Add toggle indicators
   sectionToggles.forEach(toggle => {
+    // Create and add the toggle indicator span
+    if (!toggle.querySelector('.toggle-indicator')) {
+      const indicator = document.createElement('span');
+      indicator.className = 'toggle-indicator';
+      indicator.innerHTML = '▼';
+      toggle.appendChild(indicator);
+    }
+    
     toggle.addEventListener('click', () => {
       const targetId = toggle.getAttribute('data-target');
       const targetSection = document.getElementById(targetId);
@@ -109,16 +118,25 @@ function setupAccordionSections() {
       if (isCollapsed) {
         // Expand
         toggle.classList.remove('collapsed');
+        toggle.querySelector('.toggle-indicator').innerHTML = '▼';
         targetSection.classList.remove('collapsed');
         targetSection.style.maxHeight = targetSection.scrollHeight + 'px';
-        showToast(`Expanded ${toggle.textContent} section`, "info", 1000);
+        showToast(`Expanded ${toggle.textContent.trim()} section`, "info", 1000);
       } else {
         // Collapse
         toggle.classList.add('collapsed');
+        toggle.querySelector('.toggle-indicator').innerHTML = '▶';
         targetSection.classList.add('collapsed');
         targetSection.style.maxHeight = '0';
-        showToast(`Collapsed ${toggle.textContent} section`, "info", 1000);
+        showToast(`Collapsed ${toggle.textContent.trim()} section`, "info", 1000);
       }
+    });
+  });
+  
+  // Add event listener to update maxHeight on content change
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.sidebar-section:not(.collapsed)').forEach(section => {
+      section.style.maxHeight = section.scrollHeight + 'px';
     });
   });
 }
@@ -271,7 +289,7 @@ function selectModel(modelKey) {
   }
   
   // Update model info display with visual feedback
-  modelInfo.style.background = "linear-gradient(135deg, #90EE90 0%, #98FB98 100%)";
+  modelInfo.style.background = "linear-gradient(135deg, #B3E5FC 0%, #E1F5FE 100%)";
   modelInfo.innerHTML = `
     <strong>✅ ${model.name} (Active)</strong><br>
     ${specialization ? specialization + '<br>' : ''}
@@ -286,12 +304,12 @@ function selectModel(modelKey) {
   
   // Reset background color after 2 seconds
   setTimeout(() => {
-    modelInfo.style.background = "linear-gradient(135deg, var(--assistant-msg-bg) 0%, #e8d5e8 100%)";
+    modelInfo.style.background = "linear-gradient(135deg, var(--assistant-msg-bg) 0%, #E1F5FE 100%)";
   }, 2000);
   
   // Update current model indicator
   currentModelDisplay.textContent = `Model: ${model.name}`;
-  currentModelDisplay.style.background = "linear-gradient(135deg, #32CD32 0%, var(--accent-color) 100%)";
+  currentModelDisplay.style.background = "linear-gradient(135deg, #00BCD4 0%, var(--accent-color) 100%)";
   setTimeout(() => {
     currentModelDisplay.style.background = "linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%)";
   }, 2000);
@@ -382,7 +400,7 @@ function updateParameterDisplays() {
   // Add visual feedback for changes
   const values = [maxTokensValue, temperatureValue, topPValue, topKValue, repetitionPenaltyValue, frequencyPenaltyValue, presencePenaltyValue];
   values.forEach(valueEl => {
-    valueEl.style.color = "#32CD32";
+    valueEl.style.color = "#3F51B5";
     valueEl.style.fontWeight = "bold";
     setTimeout(() => {
       valueEl.style.color = "";
