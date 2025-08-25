@@ -441,7 +441,21 @@ async function loadModels() {
   } catch (error) {
     console.error("Error loading models:", error);
     modelSelect.innerHTML = '<option value="">❌ Failed to load models</option>';
-    modelInfo.innerHTML = `<strong style="color: #FF6B6B;">❌ Error loading models:</strong><br>${error.message}<br><small>Check console for details.</small>`;
+    modelSelect.innerHTML = '<option value="">❌ Failed to load models</option>';
+    // Build modelInfo content safely
+    modelInfo.innerHTML = '';
+    const errStrong = document.createElement('strong');
+    errStrong.style.color = '#FF6B6B';
+    errStrong.textContent = '❌ Error loading models:';
+    modelInfo.appendChild(errStrong);
+    const br = document.createElement('br');
+    modelInfo.appendChild(br);
+    const msg = document.createElement('div');
+    msg.textContent = error.message;
+    modelInfo.appendChild(msg);
+    const small = document.createElement('small');
+    small.textContent = 'Check console for details.';
+    modelInfo.appendChild(small);
     showToast("Failed to load models! Check your internet connection.", "error", 5000);
   }
 }
@@ -788,6 +802,9 @@ async function sendMessage() {
     }
 
     // Process streaming response robustly, handling JSON-per-line and a final meta line
+    if (!response.body) {
+      throw new Error('Response has no body to stream');
+    }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let responseText = "";
@@ -827,7 +844,8 @@ async function sendMessage() {
             // Update the meta UI and inspector
             try {
               // Build meta with icon and timestamp
-              metaEl.innerHTML = '';
+              // Clear metaEl safely
+              while (metaEl.firstChild) metaEl.removeChild(metaEl.firstChild);
               const iconSpan = document.createElement('span');
               iconSpan.className = 'meta-icon';
               iconSpan.textContent = '🤖';
@@ -984,12 +1002,19 @@ function addMessageToChat(role, content) {
   messageEl.className = `message ${role}-message`;
   
   if (role === "assistant") {
-    messageEl.innerHTML = `
-      <p>${content}</p>
-      <button class="save-response-btn" onclick="saveResponse('${content.replace(/'/g, "\\'")}')">Save Response</button>
-    `;
+    const p = document.createElement('p');
+    p.textContent = content;
+    messageEl.appendChild(p);
+
+    const btn = document.createElement('button');
+    btn.className = 'save-response-btn';
+    btn.textContent = 'Save Response';
+    btn.addEventListener('click', () => saveResponse(content));
+    messageEl.appendChild(btn);
   } else {
-    messageEl.innerHTML = `<p>${content}</p>`;
+    const p = document.createElement('p');
+    p.textContent = content;
+    messageEl.appendChild(p);
   }
   
   chatMessages.appendChild(messageEl);
@@ -1002,34 +1027,37 @@ function addMessageToChat(role, content) {
 function saveResponse(content) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const filename = `chat-response-${timestamp}.txt`;
-  
-  fetch('/api/save-file', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      filename: filename,
-      content: content,
-      contentType: 'text/plain'
-    })
-  })
-  .then(response => response.blob())
-  .then(blob => {
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  })
-  .catch(error => {
-    console.error('Error saving file:', error);
-    alert('Failed to save file');
-  });
+  (async () => {
+    try {
+      const resp = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content, contentType: 'text/plain' })
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.error('Save-file failed', resp.status, txt);
+        showToast('Failed to save file', 'error', 3000);
+        return;
+      }
+
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showToast('Saved response to file', 'success', 2200);
+    } catch (error) {
+      console.error('Error saving file:', error);
+      showToast('Failed to save file', 'error', 3000);
+    }
+  })();
 }
 
 // Load saved prompts
@@ -1057,24 +1085,51 @@ function renderPrompts() {
   promptsList.innerHTML = '';
   
   if (savedPrompts.length === 0) {
-    promptsList.innerHTML = '<div class="list-item">No saved prompts</div>';
+    const empty = document.createElement('div');
+    empty.className = 'list-item';
+    empty.textContent = 'No saved prompts';
+    promptsList.appendChild(empty);
     return;
   }
   
   savedPrompts.forEach(prompt => {
     const item = document.createElement('div');
     item.className = 'list-item';
-    item.innerHTML = `
-      <div>
-        <div class="list-item-title">${prompt.name}</div>
-        <div style="font-size: 0.7rem; color: #666;">${prompt.tags?.join(', ') || ''}</div>
-      </div>
-      <div class="list-item-actions">
-        <button class="list-item-btn use" onclick="usePrompt('${prompt.id}')">Use</button>
-        <button class="list-item-btn" onclick="editPrompt('${prompt.id}')">Edit</button>
-        <button class="list-item-btn delete" onclick="deletePrompt('${prompt.id}')">Delete</button>
-      </div>
-    `;
+    // ...existing code...
+    const left = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'list-item-title';
+    title.textContent = prompt.name;
+    const tags = document.createElement('div');
+    tags.style.cssText = 'font-size: 0.7rem; color: #666;';
+    tags.textContent = prompt.tags?.join(', ') || '';
+    left.appendChild(title);
+    left.appendChild(tags);
+
+    const actions = document.createElement('div');
+    actions.className = 'list-item-actions';
+
+    const useBtn = document.createElement('button');
+    useBtn.className = 'list-item-btn use';
+    useBtn.textContent = 'Use';
+    useBtn.addEventListener('click', () => usePrompt(prompt.id));
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'list-item-btn';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => editPrompt(prompt.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'list-item-btn delete';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deletePrompt(prompt.id));
+
+    actions.appendChild(useBtn);
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+
+    item.appendChild(left);
+    item.appendChild(actions);
     promptsList.appendChild(item);
   });
 }
@@ -1215,7 +1270,10 @@ function renderMCPServers() {
   mcpList.innerHTML = '';
   
   if (mcpServers.length === 0) {
-    mcpList.innerHTML = '<div class="list-item">No MCP servers configured</div>';
+    const empty = document.createElement('div');
+    empty.className = 'list-item';
+    empty.textContent = 'No MCP servers configured';
+    mcpList.appendChild(empty);
     return;
   }
   
@@ -1223,17 +1281,40 @@ function renderMCPServers() {
     const item = document.createElement('div');
     item.className = 'list-item';
     const status = server.enabled ? '🟢' : '🔴';
-    item.innerHTML = `
-      <div>
-        <div class="list-item-title">${status} ${server.name}</div>
-        <div style="font-size: 0.7rem; color: #666;">${server.description || ''}</div>
-      </div>
-      <div class="list-item-actions">
-        <button class="list-item-btn" onclick="editMCPServer('${server.id}')">${server.enabled ? 'Disable' : 'Enable'}</button>
-        <button class="list-item-btn" onclick="editMCPServer('${server.id}')">Edit</button>
-        <button class="list-item-btn delete" onclick="deleteMCPServer('${server.id}')">Delete</button>
-      </div>
-    `;
+    const left = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'list-item-title';
+    title.textContent = `${status} ${server.name}`;
+    const desc = document.createElement('div');
+    desc.style.cssText = 'font-size: 0.7rem; color: #666;';
+    desc.textContent = server.description || '';
+    left.appendChild(title);
+    left.appendChild(desc);
+
+    const actions = document.createElement('div');
+    actions.className = 'list-item-actions';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'list-item-btn';
+    toggleBtn.textContent = server.enabled ? 'Disable' : 'Enable';
+    toggleBtn.addEventListener('click', () => editMCPServer(server.id));
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'list-item-btn';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => editMCPServer(server.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'list-item-btn delete';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deleteMCPServer(server.id));
+
+    actions.appendChild(toggleBtn);
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+
+    item.appendChild(left);
+    item.appendChild(actions);
     mcpList.appendChild(item);
   });
 }
@@ -1358,69 +1439,4 @@ async function saveMCPServer() {
 // Initialize the app when the page loads
 document.addEventListener("DOMContentLoaded", initialize);
 
-// Toast notification system
-function createToastContainer() {
-  if (!document.getElementById('toast-container')) {
-    const container = document.createElement('div');
-    container.id = 'toast-container';
-    container.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 10000;
-      pointer-events: none;
-    `;
-    document.body.appendChild(container);
-  }
-}
-
-function showToast(message, type = 'info', duration = 3000) {
-  // Ensure container exists (fixes 'container is null' errors)
-  let container = document.getElementById('toast-container');
-  if (!container) {
-    createToastContainer();
-    container = document.getElementById('toast-container');
-  }
-  if (!container) {
-    console.error('Toast container not found and could not be created.');
-    return;
-  }
-
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  
-  const colors = {
-    info: '#333',
-    success: 'darkgreen',
-    error: 'darkred',
-  };
-  
-  toast.style.backgroundColor = colors[type] || colors.info;
-  toast.style.color = '#fff';
-  toast.style.padding = '10px 20px';
-  toast.style.marginBottom = '5px';
-  toast.style.borderRadius = '5px';
-  toast.style.opacity = '0';
-  toast.style.transform = 'translateX(100%)';
-  toast.style.transition = 'all 0.3s ease';
-
-  toast.textContent = message;
-  container.appendChild(toast);
-  
-  // Trigger animation
-  setTimeout(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(0)';
-  }, 10);
-  
-  // Auto remove
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.parentNode.removeChild(toast);
-      }
-    }, 300);
-  }, duration);
-}
+// Toast functions are provided by `public/js/ui-utils.js` and exposed globally as showToast/createToastContainer

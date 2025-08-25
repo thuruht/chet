@@ -13,26 +13,7 @@
     </header>
 
     <div class="app-container">
-      </header>
-      <div class="theme-select-container">
-        <label for="theme-select" class="visually-hidden">Theme</label>
-        <select id="theme-select" aria-label="Select theme">
-          <option value="theme-chet">C.H.E.T. (Default)</option>
-          <option value="theme-discord">Discord</option>
-          <option value="theme-solarized-dark">Solarized Dark</option>
-          <option value="theme-solarized-light">Solarized Light</option>
-          <option value="theme-material-blue">Material Blue</option>
-          <option value="theme-material-dark">Material Dark</option>
-          <option value="theme-github-dark">GitHub Dark</option>
-          <option value="theme-github-light">GitHub Light</option>
-          <option value="theme-monokai">Monokai</option>
-          <option value="theme-dracula">Dracula</option>
-          <option value="theme-nord">Nord</option>
-          <option value="theme-tokyo-night">Tokyo Night</option>
-          <option value="theme-cyberpunk">Cyberpunk</option>
-        </select>
-        <button id="theme-toggle" class="theme-toggle-button" aria-label="Toggle light/dark" title="Toggle light/dark">🌗</button>
-      </div>
+
         <h2 class="section-toggle" data-target="model-section">Model & Settings</h2>
         <div id="model-section" class="sidebar-section">
           <div class="model-selector">
@@ -248,7 +229,9 @@
       </div>
     </div>
 
-    <!-- Chat app script -->
-    <script src="chat.js"></script>
+  <!-- Shared UI utilities (to provide showToast, etc.) -->
+  <script src="js/ui-utils.js"></script>
+  <!-- Chat app script -->
+  <script src="chat.js"></script>
   </body>
 </html>

@@ -22,17 +22,7 @@
   --danger-color: #ff6b6b;         /* Red */
 }
 
-/* Theme presets - each class overrides the CSS variables above */
-.theme-discord {
-  --primary-color: #7289da;
-  --accent-color: #2dd4bf;
-  --secondary-color: #ff6b6b;
-  --light-bg: #0f1724;
-  --dark-bg: #0b1220;
-  --border-color: #162033;
-  --text-color: #d6e3ff;
-  --text-light: #9fb3d6;
-}
+/* Theme presets - keep a small curated set: Solarized (light/dark), GitHub (light/dark), and C.H.E.T. */
 
 .theme-select-container {
   display: inline-flex;
@@ -99,27 +89,6 @@
   --text-light: #586e75;
 }
 
-.theme-material-blue {
-  --primary-color: #2196f3;
-  --accent-color: #03dac6;
-  --secondary-color: #ff4081;
-  --light-bg: #0b1220;
-  --dark-bg: #071427;
-  --border-color: #142033;
-  --text-color: #e8f0ff;
-  --text-light: #a9c3e8;
-}
-
-.theme-material-dark {
-  --primary-color: #90caf9;
-  --accent-color: #80cbc4;
-  --secondary-color: #f48fb1;
-  --light-bg: #0a0f14;
-  --dark-bg: #05070a;
-  --border-color: #16202b;
-  --text-color: #e6f0ff;
-  --text-light: #9fb3d6;
-}
 
 .theme-github-dark {
   --primary-color: #3996ff;
@@ -143,60 +112,7 @@
   --text-light: #57606a;
 }
 
-.theme-monokai {
-  --primary-color: #f92672;
-  --accent-color: #a6e22e;
-  --secondary-color: #fd971f;
-  --light-bg: #272822;
-  --dark-bg: #1e1f1c;
-  --border-color: #2e2f2c;
-  --text-color: #f8f8f2;
-  --text-light: #a6a88a;
-}
-
-.theme-dracula {
-  --primary-color: #6272a4;
-  --accent-color: #8be9fd;
-  --secondary-color: #ff79c6;
-  --light-bg: #282a36;
-  --dark-bg: #21222c;
-  --border-color: #2b2e3a;
-  --text-color: #f8f8f2;
-  --text-light: #bfbfd9;
-}
-
-.theme-nord {
-  --primary-color: #5e81ac;
-  --accent-color: #88c0d0;
-  --secondary-color: #bf616a;
-  --light-bg: #2e3440;
-  --dark-bg: #2b303b;
-  --border-color: #3b4252;
-  --text-color: #e5eef8;
-  --text-light: #9aa8bf;
-}
-
-.theme-tokyo-night {
-  --primary-color: #7aa2f7;
-  --accent-color: #9ccfd8;
-  --secondary-color: #f7768e;
-  --light-bg: #161821;
-  --dark-bg: #0f1117;
-  --border-color: #1f2430;
-  --text-color: #c0caf5;
-  --text-light: #7b88a9;
-}
-
-.theme-cyberpunk {
-  --primary-color: #ff4dff;
-  --accent-color: #00e6ff;
-  --secondary-color: #ffb86b;
-  --light-bg: #05040a;
-  --dark-bg: #02020a;
-  --border-color: #1a001a;
-  --text-color: #e6e6ff;
-  --text-light: #a8a0c4;
-}
+/* removed many theme presets to keep the stylesheet focused and small */
 
 /* C.H.E.T. default theme: deep green & teal backgrounds, pale green text, bright lavender accent */
 .theme-chet {

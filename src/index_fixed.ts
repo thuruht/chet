@@ -326,7 +326,8 @@ async function handleChatRequest(
     }
 
     const response = await env.AI.run(
-      modelConfig.id,
+      // cast to any because generated Ai.run typings expect a keyof AiModels in some setups
+      modelConfig.id as any,
       aiParams,
       {
         returnRawResponse: true,
