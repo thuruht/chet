@@ -87,59 +87,115 @@ async function initialize() {
   setupAccordionSections();
 }
 
-// Setup accordion sections
 function setupAccordionSections() {
+  const STORAGE_KEY = 'chet_sidebar_state';
   const sectionToggles = document.querySelectorAll('.section-toggle');
-  
-  // Make all sections expanded by default
+
+  // Read saved state from localStorage (map of id -> boolean expanded)
+  let savedState = {};
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) savedState = JSON.parse(raw) || {};
+  } catch (e) {
+    // ignore parse errors
+    savedState = {};
+  }
+
+  // Collapse all sections by default, then restore saved state where present
   document.querySelectorAll('.sidebar-section').forEach(section => {
-    section.style.maxHeight = section.scrollHeight + 'px';
+    const id = section.id;
+    const shouldExpand = !!savedState[id];
+    if (shouldExpand) {
+      section.classList.remove('collapsed');
+      section.style.maxHeight = section.scrollHeight + 'px';
+      section.setAttribute('aria-hidden', 'false');
+    } else {
+      section.classList.add('collapsed');
+      section.style.maxHeight = '0';
+      section.setAttribute('aria-hidden', 'true');
+    }
   });
-  
-  // Add toggle indicators
+
+  // Add indicators, ARIA attributes, and handlers
   sectionToggles.forEach(toggle => {
-    // Create and add the toggle indicator span
-    if (!toggle.querySelector('.toggle-indicator')) {
-      const indicator = document.createElement('span');
+    const targetId = toggle.getAttribute('data-target');
+    const targetSection = document.getElementById(targetId);
+    if (!targetSection) return;
+
+    // Make toggles keyboard accessible and announceable
+    toggle.setAttribute('role', 'button');
+    toggle.setAttribute('tabindex', '0');
+    toggle.setAttribute('aria-controls', targetId);
+
+    // Add indicator element if missing
+    let indicator = toggle.querySelector('.toggle-indicator');
+    if (!indicator) {
+      indicator = document.createElement('span');
       indicator.className = 'toggle-indicator';
-      indicator.innerHTML = '▼';
+      indicator.style.marginLeft = '8px';
       toggle.appendChild(indicator);
     }
-    
-    toggle.addEventListener('click', () => {
-      const targetId = toggle.getAttribute('data-target');
-      const targetSection = document.getElementById(targetId);
-      
-      if (!targetSection) return;
-      
+
+    // Initialize aria-expanded and indicator based on saved state
+    const expanded = !targetSection.classList.contains('collapsed');
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggle.setAttribute('aria-label', `${toggle.textContent.trim()} toggle`);
+    indicator.textContent = expanded ? '▼' : '▶';
+
+    const saveState = (id, isExpanded) => {
+      try {
+        savedState[id] = !!isExpanded;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+      } catch (e) {
+        // ignore quota errors
+      }
+    };
+
+    const toggleHandler = (e) => {
       const isCollapsed = targetSection.classList.contains('collapsed');
-      
-      // Toggle the section
       if (isCollapsed) {
         // Expand
         toggle.classList.remove('collapsed');
-        toggle.querySelector('.toggle-indicator').innerHTML = '▼';
+        toggle.setAttribute('aria-expanded', 'true');
+        indicator.textContent = '▼';
         targetSection.classList.remove('collapsed');
-        targetSection.style.maxHeight = targetSection.scrollHeight + 'px';
-        showToast(`Expanded ${toggle.textContent.trim()} section`, "info", 1000);
+        targetSection.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => {
+          targetSection.style.maxHeight = targetSection.scrollHeight + 'px';
+        });
+        showToast(`Expanded ${toggle.textContent.trim()} section`, "info", 900);
+        saveState(targetId, true);
       } else {
         // Collapse
         toggle.classList.add('collapsed');
-        toggle.querySelector('.toggle-indicator').innerHTML = '▶';
+        toggle.setAttribute('aria-expanded', 'false');
+        indicator.textContent = '▶';
         targetSection.classList.add('collapsed');
+        targetSection.setAttribute('aria-hidden', 'true');
         targetSection.style.maxHeight = '0';
-        showToast(`Collapsed ${toggle.textContent.trim()} section`, "info", 1000);
+        showToast(`Collapsed ${toggle.textContent.trim()} section`, "info", 900);
+        saveState(targetId, false);
+      }
+    };
+
+    // Click and keyboard handlers
+    toggle.addEventListener('click', toggleHandler);
+    toggle.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        toggleHandler();
       }
     });
   });
-  
-  // Add event listener to update maxHeight on content change
+
+  // Update maxHeight when window resizes
   window.addEventListener('resize', () => {
     document.querySelectorAll('.sidebar-section:not(.collapsed)').forEach(section => {
       section.style.maxHeight = section.scrollHeight + 'px';
     });
   });
 }
+
 
 // Load available models from the API
 async function loadModels() {
@@ -983,31 +1039,36 @@ function createToastContainer() {
 }
 
 function showToast(message, type = 'info', duration = 3000) {
-  const container = document.getElementById('toast-container');
+  // Ensure container exists (fixes 'container is null' errors)
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    createToastContainer();
+    container = document.getElementById('toast-container');
+  }
+
   const toast = document.createElement('div');
-  
   const colors = {
-    success: '#32CD32',
-    error: '#FF6B6B',
+    success: getComputedStyle(document.documentElement).getPropertyValue('--success-color') || '#32CD32',
+    error: getComputedStyle(document.documentElement).getPropertyValue('--danger-color') || '#FF6B6B',
     warning: '#FFD93D',
-    info: '#4ECDC4'
+    info: getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#4ECDC4'
   };
-  
-  toast.style.cssText = `
-    background: ${colors[type] || colors.info};
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    font-weight: 500;
-    font-size: 14px;
-    pointer-events: auto;
-    opacity: 0;
-    transform: translateX(100%);
-    transition: all 0.3s ease;
-  `;
-  
+
+  toast.className = 'toast';
+  toast.classList.add(type);
+  toast.style.background = colors[type] || colors.info;
+  toast.style.color = 'white';
+  toast.style.padding = '12px 20px';
+  toast.style.borderRadius = '8px';
+  toast.style.marginBottom = '10px';
+  toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+  toast.style.fontWeight = '500';
+  toast.style.fontSize = '14px';
+  toast.style.pointerEvents = 'auto';
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateX(100%)';
+  toast.style.transition = 'all 0.3s ease';
+
   toast.textContent = message;
   container.appendChild(toast);
   
