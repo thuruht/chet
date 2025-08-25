@@ -13,6 +13,8 @@ const typingIndicator = document.getElementById("typing-indicator");
 const modelSelect = document.getElementById("model-select");
 const modelInfo = document.getElementById("model-info");
 const currentModelDisplay = document.getElementById("current-model");
+const themeSelect = document.getElementById("theme-select");
+const themeToggle = document.getElementById('theme-toggle');
 
 // Parameter controls
 const maxTokensSlider = document.getElementById("max-tokens");
@@ -86,8 +88,10 @@ async function initialize() {
   setupEventListeners();
   updateParameterDisplays();
   createToastContainer();
+  setupTheme();
   setupAccordionSections();
   setupDevTools();
+  setupServerMetaModal();
 }
 
 function setupDevTools() {
@@ -154,6 +158,91 @@ function setupDevTools() {
     try {
       navigator.clipboard.writeText(inspectorResponse.textContent || '').then(() => showToast('Response meta copied', 'success', 1400));
     } catch (e) { showToast('Copy failed', 'error', 1400); }
+  });
+}
+
+// Theme setup and persistence
+function setupTheme() {
+  if (!themeSelect) return;
+
+  const STORAGE_KEY = 'chet_theme';
+
+  // Apply a theme class to the document body
+  const applyTheme = (className) => {
+    // Remove any known theme- classes first
+    Array.from(document.body.classList).forEach(c => {
+      if (c.startsWith('theme-')) document.body.classList.remove(c);
+    });
+    if (className) document.body.classList.add(className);
+  };
+
+  // Load saved theme
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    // If body already has a theme- class (from server/default), prefer that
+    const bodyTheme = Array.from(document.body.classList).find(c => c && c.startsWith('theme-'));
+    if (bodyTheme) {
+      applyTheme(bodyTheme);
+      try { themeSelect.value = bodyTheme; } catch (e) {}
+    } else if (saved) {
+      applyTheme(saved);
+      try { themeSelect.value = saved; } catch (e) {}
+    } else {
+      // final fallback: C.H.E.T. theme
+      applyTheme('theme-chet');
+      try { themeSelect.value = 'theme-chet'; } catch (e) {}
+    }
+  } catch (e) {}
+
+  // Listen for changes
+  themeSelect.addEventListener('change', (e) => {
+    const val = e.target.value;
+    applyTheme(val);
+    try { localStorage.setItem(STORAGE_KEY, val); } catch (err) {}
+    showToast(`Theme set to ${themeSelect.options[themeSelect.selectedIndex].text}`, 'success', 1000);
+  });
+
+  // Light/Dark toggle: map of light <-> dark counterparts
+  const toggleMap = {
+    'theme-solarized-light': 'theme-solarized-dark',
+    'theme-solarized-dark': 'theme-solarized-light',
+    'theme-github-light': 'theme-github-dark',
+    'theme-github-dark': 'theme-github-light',
+    'theme-material-blue': 'theme-material-dark',
+    'theme-material-dark': 'theme-material-blue',
+    // leave others mapping to a sensible dark variant
+    'theme-discord': 'theme-discord',
+    'theme-monokai': 'theme-monokai',
+    'theme-dracula': 'theme-dracula',
+    'theme-nord': 'theme-nord',
+    'theme-tokyo-night': 'theme-tokyo-night',
+    'theme-cyberpunk': 'theme-cyberpunk'
+  };
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const current = Array.from(document.body.classList).find(c => c.startsWith('theme-')) || themeSelect.value;
+      const next = toggleMap[current] || current;
+      // Update select if option exists
+      try {
+        const optionExists = Array.from(themeSelect.options).some(o => o.value === next);
+        if (optionExists) themeSelect.value = next;
+      } catch (e) {}
+      applyTheme(next);
+      try { localStorage.setItem(STORAGE_KEY, next); } catch (err) {}
+      showToast('Toggled theme', 'info', 800);
+    });
+  }
+
+  // Keyboard shortcut: Ctrl/Cmd+T toggles theme (unobtrusive)
+  window.addEventListener('keydown', (e) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const metaKey = isMac ? e.metaKey : e.ctrlKey;
+    if (metaKey && e.key.toLowerCase() === 't') {
+      // prevent browser tab switch in some environments
+      e.preventDefault();
+      if (themeToggle) themeToggle.click();
+    }
   });
 }
 
@@ -738,7 +827,37 @@ async function sendMessage() {
             }
           }
         } catch (e) {
-          // If not JSON, treat as plain text append (fallback)
+          // If not JSON, try to detect embedded JSON (meta/response) and extract it.
+          const trimmed = line.trim();
+          // If the line starts with a JSON object, attempt to extract a trailing object
+          if (trimmed.startsWith('{')) {
+            // Find the first { and last } to attempt to parse a JSON substring
+            const firstBrace = line.indexOf('{');
+            const lastBrace = line.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              const maybeJson = line.slice(firstBrace, lastBrace + 1);
+              try {
+                const parsed = JSON.parse(maybeJson);
+                if (parsed.response) {
+                  responseText += parsed.response;
+                  contentP.textContent = responseText;
+                  chatMessages.scrollTop = chatMessages.scrollHeight;
+                  hadResponse = true;
+                } else if (parsed.meta) {
+                  serverMeta = parsed.meta;
+                  lastServerMeta = serverMeta;
+                  // create concise meta UI and view button below (handled next loop)
+                }
+                continue; // skip adding raw JSON to text
+              } catch (err) {
+                // fall through to ignoring raw JSON
+              }
+            }
+            // If likely JSON but couldn't parse, ignore it (don't dump into chat)
+            continue;
+          }
+
+          // Otherwise treat as plain text
           responseText += line;
           contentP.textContent = responseText;
           chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -1238,31 +1357,44 @@ function createToastContainer() {
 function showToast(message, type = 'info', duration = 3000) {
   // Ensure container exists (fixes 'container is null' errors)
   let container = document.getElementById('toast-container');
-  if (!container) {
-    createToastContainer();
-    container = document.getElementById('toast-container');
-  }
+            if (jsonData.meta) {
+              // Authoritative server-side metadata arrived
+              serverMeta = jsonData.meta;
+              lastServerMeta = serverMeta;
+              // Update the inspector
+              if (window.__chetInspector && typeof window.__chetInspector.setResponseMeta === 'function') {
+                try { window.__chetInspector.setResponseMeta(serverMeta); } catch (e) {}
+              }
 
-  const toast = document.createElement('div');
-  const colors = {
-    success: getComputedStyle(document.documentElement).getPropertyValue('--success-color') || '#32CD32',
-    error: getComputedStyle(document.documentElement).getPropertyValue('--danger-color') || '#FF6B6B',
-    warning: '#FFD93D',
-    info: getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#4ECDC4'
-  };
+              // Build a concise meta UI with a "View metadata" button (opens modal)
+              try {
+                metaEl.innerHTML = '';
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'meta-icon';
+                iconSpan.textContent = '🤖';
+                metaEl.appendChild(iconSpan);
 
-  toast.className = 'toast';
-  toast.classList.add(type);
-  toast.style.background = colors[type] || colors.info;
-  toast.style.color = 'white';
-  toast.style.padding = '12px 20px';
-  toast.style.borderRadius = '8px';
-  toast.style.marginBottom = '10px';
-  toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-  toast.style.fontWeight = '500';
-  toast.style.fontSize = '14px';
-  toast.style.pointerEvents = 'auto';
-  toast.style.opacity = '0';
+                const mainText = document.createElement('span');
+                mainText.textContent = `Server: ${serverMeta.modelKey} (${serverMeta.modelId})`;
+                metaEl.appendChild(mainText);
+
+                const viewBtn = document.createElement('button');
+                viewBtn.textContent = 'View server metadata';
+                viewBtn.className = 'list-item-btn';
+                viewBtn.style.marginLeft = '8px';
+                viewBtn.addEventListener('click', (ev) => {
+                  ev.stopPropagation();
+                  try { document.getElementById('server-meta-json').textContent = JSON.stringify(serverMeta, null, 2); } catch (err) { document.getElementById('server-meta-json').textContent = String(serverMeta); }
+                  document.getElementById('server-meta-modal').style.display = 'block';
+                });
+                metaEl.appendChild(viewBtn);
+
+                const ts = document.createElement('span');
+                ts.className = 'meta-ts';
+                ts.textContent = new Date().toLocaleTimeString();
+                metaEl.appendChild(ts);
+              } catch (e) {}
+            }
   toast.style.transform = 'translateX(100%)';
   toast.style.transition = 'all 0.3s ease';
 

@@ -6,14 +6,32 @@
     <title>C.H.E.T. - Chat Helper for (almost) Every Task</title>
     <link rel="stylesheet" href="styles.css">
   </head>
-  <body>
+  <body class="theme-chet">
     <header>
       <h1>C.H.E.T.</h1>
       <p>Chat Helper for (almost) Every Task</p>
     </header>
 
     <div class="app-container">
-      <div class="sidebar">
+      </header>
+      <div class="theme-select-container">
+        <label for="theme-select" class="visually-hidden">Theme</label>
+        <select id="theme-select" aria-label="Select theme">
+          <option value="theme-discord">Discord (Default)</option>
+          <option value="theme-solarized-dark">Solarized Dark</option>
+          <option value="theme-solarized-light">Solarized Light</option>
+          <option value="theme-material-blue">Material Blue</option>
+          <option value="theme-material-dark">Material Dark</option>
+          <option value="theme-github-dark">GitHub Dark</option>
+          <option value="theme-github-light">GitHub Light</option>
+          <option value="theme-monokai">Monokai</option>
+          <option value="theme-dracula">Dracula</option>
+          <option value="theme-nord">Nord</option>
+          <option value="theme-tokyo-night">Tokyo Night</option>
+          <option value="theme-cyberpunk">Cyberpunk</option>
+        </select>
+        <button id="theme-toggle" class="theme-toggle-button" aria-label="Toggle light/dark" title="Toggle light/dark">🌗</button>
+      </div>
         <h2 class="section-toggle" data-target="model-section">Model & Settings</h2>
         <div id="model-section" class="sidebar-section">
           <div class="model-selector">
