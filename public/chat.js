@@ -64,7 +64,7 @@ const cancelMCPBtn = document.getElementById("cancel-mcp");
 const saveMCPBtn = document.getElementById("save-mcp");
 
 // Application state
-let availableModels = {};
+    while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
 let currentModel = null;
 let chatHistory = [
   {
@@ -87,24 +87,28 @@ async function initialize() {
   await loadMCPServers();
   setupEventListeners();
   updateParameterDisplays();
-  createToastContainer();
-  setupTheme();
-  setupAccordionSections();
-  setupDevTools();
-  setupServerMetaModal();
-}
+    console.error("Error loading models:", error);
+    // Clear select safely and add a single error option
+    while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
+    const errOpt = document.createElement('option');
+    errOpt.value = '';
+    errOpt.textContent = '❌ Failed to load models';
+    modelSelect.appendChild(errOpt);
 
-function setupDevTools() {
-  const personaCheckbox = document.getElementById('persona-enabled');
-  const openInspectorBtn = document.getElementById('open-inspector-btn');
-  const inspector = document.getElementById('request-inspector');
-  const inspectorRequest = document.getElementById('inspector-request');
-  const inspectorResponse = document.getElementById('inspector-response');
-  const inspectorControlsWrap = document.createElement('div');
-  inspectorControlsWrap.className = 'inspector-controls';
-  const copyReqBtn = document.createElement('button');
-  copyReqBtn.textContent = 'Copy Request';
-  const copyResBtn = document.createElement('button');
+    // Build modelInfo content safely
+    while (modelInfo.firstChild) modelInfo.removeChild(modelInfo.firstChild);
+    const errStrong = document.createElement('strong');
+    errStrong.style.color = '#FF6B6B';
+    errStrong.textContent = '❌ Error loading models:';
+    modelInfo.appendChild(errStrong);
+    modelInfo.appendChild(document.createElement('br'));
+    const msg = document.createElement('div');
+    msg.textContent = error.message || String(error);
+    modelInfo.appendChild(msg);
+    const small = document.createElement('small');
+    small.textContent = 'Check console for details.';
+    modelInfo.appendChild(small);
+    showToast("Failed to load models! Check your internet connection.", "error", 5000);
   copyResBtn.textContent = 'Copy Response Meta';
   inspectorControlsWrap.appendChild(copyReqBtn);
   inspectorControlsWrap.appendChild(copyResBtn);
@@ -565,17 +569,43 @@ function selectModel(modelKey) {
   
   // Update model info display with visual feedback
   modelInfo.style.background = "linear-gradient(135deg, #B3E5FC 0%, #E1F5FE 100%)";
-  modelInfo.innerHTML = `
-    <strong>✅ ${model.name} (Active)</strong><br>
-    ${specialization ? specialization + '<br>' : ''}
-    ${model.description}<br>
-    <small>
-      <strong>Context Window:</strong> ${model.contextWindow.toLocaleString()} tokens<br>
-      <strong>Max Output:</strong> ${model.maxTokensMax.toLocaleString()} tokens<br>
-      ${capabilities.length > 0 ? `<strong>Capabilities:</strong> ${capabilities.join(', ')}<br>` : ''}
-      <strong>Best for:</strong> ${getModelUseCases(modelKey)}
-    </small>
-  `;
+  // Build the model info content using DOM methods (avoid innerHTML)
+  while (modelInfo.firstChild) modelInfo.removeChild(modelInfo.firstChild);
+  const strong = document.createElement('strong');
+  strong.textContent = `✅ ${model.name} (Active)`;
+  modelInfo.appendChild(strong);
+  modelInfo.appendChild(document.createElement('br'));
+  if (specialization) {
+    const spec = document.createElement('div');
+    spec.textContent = specialization;
+    modelInfo.appendChild(spec);
+  }
+  const desc = document.createElement('div');
+  desc.textContent = model.description;
+  modelInfo.appendChild(desc);
+  const small = document.createElement('small');
+  const ctxStrong = document.createElement('strong');
+  ctxStrong.textContent = 'Context Window:';
+  small.appendChild(ctxStrong);
+  small.appendChild(document.createTextNode(' ' + (model.contextWindow?.toLocaleString() ?? '-') + ' tokens'));
+  small.appendChild(document.createElement('br'));
+  const maxStrong = document.createElement('strong');
+  maxStrong.textContent = 'Max Output:';
+  small.appendChild(maxStrong);
+  small.appendChild(document.createTextNode(' ' + (model.maxTokensMax?.toLocaleString() ?? '-') + ' tokens'));
+  if (capabilities.length > 0) {
+    small.appendChild(document.createElement('br'));
+    const capStrong = document.createElement('strong');
+    capStrong.textContent = 'Capabilities:';
+    small.appendChild(capStrong);
+    small.appendChild(document.createTextNode(' ' + capabilities.join(', ')));
+  }
+  small.appendChild(document.createElement('br'));
+  const bestFor = document.createElement('strong');
+  bestFor.textContent = 'Best for:';
+  small.appendChild(bestFor);
+  small.appendChild(document.createTextNode(' ' + getModelUseCases(modelKey)));
+  modelInfo.appendChild(small);
   
   // Reset background color after 2 seconds
   setTimeout(() => {
