@@ -387,6 +387,39 @@ header p {
   font-weight: 600;
 }
 
+/* Server meta modal specific tweaks */
+#server-meta-json {
+  font-size: 0.85rem;
+  background: #fff;
+  border-radius: 8px;
+}
+
+#server-meta-copy {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+  color: var(--text-on-dark);
+  border: none;
+}
+
+#server-meta-close {
+  background: var(--light-bg);
+}
+
+.server-meta-body {
+  background: #fff;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 8px;
+}
+
+.server-meta-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .modal-content input,
 .modal-content textarea,
 .modal-content select {
@@ -495,6 +528,64 @@ header p {
   margin-right: auto;
   border-left: 4px solid var(--secondary-color);
   color: var(--text-color);
+}
+
+.message-meta {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.message-meta .meta-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.06);
+  color: var(--text-light);
+  font-size: 0.8rem;
+}
+
+.message-meta .meta-ts {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+.persona-greeting {
+  color: #444;
+  background: rgba(255,255,255,0.6);
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.model-alert {
+  display: none;
+  margin-left: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--text-on-dark);
+  background: var(--danger-color);
+}
+
+.inspector-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.inspector-controls button {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: white;
+  cursor: pointer;
 }
 
 .current-model {
@@ -630,4 +721,34 @@ footer {
   .sidebar {
     max-height: 300px;
   }
+}
+
+/* Dev tools / inspector styles */
+.persona-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.persona-note {
+  color: #666;
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+.request-inspector {
+  display: none;
+  margin-top: 8px;
+}
+.inspector-title {
+  font-size: 0.85rem;
+  color: #444;
+  margin-bottom: 6px;
+}
+.inspector-pre {
+  background: #fff;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 0.8rem;
 }

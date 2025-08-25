@@ -368,21 +368,56 @@ async function handleChatRequest(
     }
 
     const response = await env.AI.run(
-      modelConfig.id,
+      // modelConfig.id may be a string; cast to any to satisfy generated typings for Ai.run
+      modelConfig.id as any,
       aiParams,
       {
         returnRawResponse: true,
-        // Uncomment to use AI Gateway
-        // gateway: {
-        //   id: "YOUR_GATEWAY_ID", // Replace with your AI Gateway ID
-        //   skipCache: false,      // Set to true to bypass cache
-        //   cacheTtl: 3600,        // Cache time-to-live in seconds
-        // },
       },
     );
 
-    // Return streaming response
-    return response;
+    // Wrap the original streaming response so we can append a final metadata JSON line
+    try {
+      const originalBody = response?.body;
+      if (!originalBody) {
+        return response;
+      }
+
+      const reader = originalBody.getReader();
+
+      const stream = new ReadableStream({
+        async pull(controller) {
+          try {
+            const { done, value } = await reader.read();
+            if (done) {
+              // When original stream ends, enqueue a final metadata JSON line
+              const meta = JSON.stringify({ meta: { modelKey: model, modelId: modelConfig.id, params: {
+                maxTokens: aiParams.max_tokens,
+                temperature: aiParams.temperature,
+                top_p: aiParams.top_p,
+                top_k: aiParams.top_k,
+              } } }) + "\n";
+              controller.enqueue(new TextEncoder().encode(meta));
+              controller.close();
+              return;
+            }
+            controller.enqueue(value);
+          } catch (err) {
+            controller.error(err);
+          }
+        },
+        cancel(reason) {
+          try { reader.cancel(); } catch (e) {}
+        }
+      });
+
+      // Copy headers from original response
+      const headers = new Headers(response.headers);
+      return new Response(stream, { status: response.status, headers });
+    } catch (err) {
+      console.error('Error wrapping AI response stream for metadata:', err);
+      return response;
+    }
   } catch (error) {
     console.error("Error processing chat request:", error);
     return new Response(

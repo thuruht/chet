@@ -67,7 +67,7 @@ let currentModel = null;
 let chatHistory = [
   {
     role: "assistant",
-    content: "Hello, bozo! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!",
+    content: "Hello! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!",
   },
 ];
 let isProcessing = false;
@@ -75,6 +75,8 @@ let savedPrompts = [];
 let mcpServers = [];
 let editingPrompt = null;
 let editingMCP = null;
+// Keep latest server meta globally for modal viewing
+let lastServerMeta = null;
 
 // Initialize the application
 async function initialize() {
@@ -85,6 +87,100 @@ async function initialize() {
   updateParameterDisplays();
   createToastContainer();
   setupAccordionSections();
+  setupDevTools();
+}
+
+function setupDevTools() {
+  const personaCheckbox = document.getElementById('persona-enabled');
+  const openInspectorBtn = document.getElementById('open-inspector-btn');
+  const inspector = document.getElementById('request-inspector');
+  const inspectorRequest = document.getElementById('inspector-request');
+  const inspectorResponse = document.getElementById('inspector-response');
+  const inspectorControlsWrap = document.createElement('div');
+  inspectorControlsWrap.className = 'inspector-controls';
+  const copyReqBtn = document.createElement('button');
+  copyReqBtn.textContent = 'Copy Request';
+  const copyResBtn = document.createElement('button');
+  copyResBtn.textContent = 'Copy Response Meta';
+  inspectorControlsWrap.appendChild(copyReqBtn);
+  inspectorControlsWrap.appendChild(copyResBtn);
+  inspector.insertBefore(inspectorControlsWrap, inspector.firstChild);
+
+  // Persist inspector open/closed state
+  try {
+    const saved = localStorage.getItem('chet_inspector_visible');
+    if (saved === 'true') {
+      inspector.style.display = 'block';
+      openInspectorBtn.textContent = 'Hide Request Inspector';
+    }
+  } catch (e) {}
+
+  // Load saved persona preference
+  try {
+    const saved = localStorage.getItem('chet_persona_enabled');
+    if (saved !== null) personaCheckbox.checked = saved === 'true';
+  } catch (e) {}
+
+  personaCheckbox.addEventListener('change', () => {
+    try { localStorage.setItem('chet_persona_enabled', personaCheckbox.checked ? 'true' : 'false'); } catch (e) {}
+    showToast(personaCheckbox.checked ? 'Playful persona enabled' : 'Playful persona disabled','info',1200);
+  });
+
+  openInspectorBtn.addEventListener('click', () => {
+    const visible = inspector.style.display !== 'none';
+    const next = visible ? 'none' : 'block';
+    inspector.style.display = next;
+    openInspectorBtn.textContent = visible ? 'Open Request Inspector' : 'Hide Request Inspector';
+    try { localStorage.setItem('chet_inspector_visible', (!visible).toString()); } catch (e) {}
+  });
+
+  // Helper to populate inspector from send/end
+  window.__chetInspector = {
+    setRequest: (payload) => {
+      try { inspectorRequest.textContent = JSON.stringify(payload, null, 2); } catch (e) { inspectorRequest.textContent = String(payload); }
+    },
+    setResponseMeta: (meta) => {
+      try { inspectorResponse.textContent = JSON.stringify(meta, null, 2); } catch (e) { inspectorResponse.textContent = String(meta); }
+    }
+  };
+
+  // Copy handlers
+  copyReqBtn.addEventListener('click', () => {
+    try {
+      navigator.clipboard.writeText(inspectorRequest.textContent || '').then(() => showToast('Request copied to clipboard', 'success', 1400));
+    } catch (e) { showToast('Copy failed', 'error', 1400); }
+  });
+  copyResBtn.addEventListener('click', () => {
+    try {
+      navigator.clipboard.writeText(inspectorResponse.textContent || '').then(() => showToast('Response meta copied', 'success', 1400));
+    } catch (e) { showToast('Copy failed', 'error', 1400); }
+  });
+}
+
+// Server meta modal wiring
+function setupServerMetaModal() {
+  const modelAlert = document.getElementById('model-alert');
+  const modal = document.getElementById('server-meta-modal');
+  const metaPre = document.getElementById('server-meta-json');
+  const copyBtn = document.getElementById('server-meta-copy');
+  const closeBtn = document.getElementById('server-meta-close');
+
+  modelAlert.addEventListener('click', () => {
+    if (!lastServerMeta) return;
+    try { metaPre.textContent = JSON.stringify(lastServerMeta, null, 2); } catch (e) { metaPre.textContent = String(lastServerMeta); }
+    modal.style.display = 'block';
+  });
+
+  copyBtn.addEventListener('click', () => {
+    try { navigator.clipboard.writeText(metaPre.textContent || ''); showToast('Server meta copied', 'success', 1200); } catch (e) { showToast('Copy failed', 'error', 1200); }
+  });
+
+  closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+
+  // Close when clicking outside modal
+  window.addEventListener('click', (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  });
 }
 
 function setupAccordionSections() {
@@ -468,7 +564,7 @@ function updateParameterDisplays() {
 // Get current parameter values
 function getCurrentParameters() {
   const params = {
-    model: modelSelect.value,
+    model: (currentModel && currentModel.key) ? currentModel.key : modelSelect.value,
     maxTokens: parseInt(maxTokensSlider.value),
     temperature: parseFloat(temperatureSlider.value),
     topP: parseFloat(topPSlider.value),
@@ -516,15 +612,54 @@ async function sendMessage() {
   try {
     // Get current parameters
     const parameters = getCurrentParameters();
+    // Log what we're sending for better debugging
+    console.log('Sending chat with parameters:', parameters, 'modelConfigId:', availableModels[parameters.model]?.id);
+
+    // Send inspector payload for dev tools (if enabled)
+    if (window.__chetInspector && typeof window.__chetInspector.setRequest === 'function') {
+      try { window.__chetInspector.setRequest({ messages: chatHistory, ...parameters }); } catch (e) {}
+    }
 
     // Create new assistant response element
     const assistantMessageEl = document.createElement("div");
     assistantMessageEl.className = "message assistant-message";
-    assistantMessageEl.innerHTML = "<p></p>";
+
+    // Create persona greeting area (if enabled we'll populate it later)
+    const personaEl = document.createElement('div');
+    personaEl.className = 'assistant-persona';
+    assistantMessageEl.appendChild(personaEl);
+
+    // Main content paragraph
+    const contentP = document.createElement('p');
+    contentP.textContent = '';
+    assistantMessageEl.appendChild(contentP);
+
+    // Add a small metadata area so the user can see which model and params were used
+    const metaEl = document.createElement('div');
+    metaEl.className = 'message-meta';
+    metaEl.style.fontSize = '0.75rem';
+    metaEl.style.color = '#666';
+    metaEl.style.marginTop = '6px';
+    metaEl.style.display = 'flex';
+    metaEl.style.gap = '8px';
+    metaEl.style.alignItems = 'center';
+    assistantMessageEl.appendChild(metaEl);
+
+    // Fill initial (client-side) meta badge so user sees immediate feedback
+    try {
+      metaEl.textContent = `Model: ${availableModels[parameters.model]?.name || parameters.model} • Temp: ${parameters.temperature} • MaxTokens: ${parameters.maxTokens}`;
+    } catch (e) {}
+
     chatMessages.appendChild(assistantMessageEl);
 
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Validate model exists
+    if (!availableModels[parameters.model]) {
+      showToast(`Selected model "${parameters.model}" is not available`, 'error', 4000);
+      throw new Error('Invalid model selected');
+    }
 
     // Send request to API with parameters
     const response = await fetch("/api/chat", {
@@ -543,84 +678,146 @@ async function sendMessage() {
       throw new Error(`HTTP ${response.status}: Failed to get response`);
     }
 
-    // Process streaming response
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let responseText = "";
+    // Process streaming response robustly, handling JSON-per-line and a final meta line
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let responseText = "";
+    let hadResponse = false;
+    let sseBuffer = "";
+    let serverMeta = null;
 
-      while (true) {
-        const { done, value } = await reader.read();
+    while (true) {
+      const { done, value } = await reader.read();
 
-        if (done) {
-          break;
-        }
+      if (done) {
+        break;
+      }
 
-        // Decode chunk
-        const chunk = decoder.decode(value, { stream: true });
+      // Decode chunk
+      const chunk = decoder.decode(value, { stream: true });
+      sseBuffer += chunk;
 
-        // Process SSE format
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          try {
-            const jsonData = JSON.parse(line);
-            if (jsonData.response) {
-              // Append new content to existing text
-              responseText += jsonData.response;
-              
-              // Replace the response with one that addresses the user as "bozo"
-              let displayText = responseText;
-              
-              // Check if we're at the beginning of a response to add "bozo" greeting
-              if (displayText.length < 100 && !displayText.includes("bozo")) {
-                // Add "bozo" to the start of the response if appropriate
-                if (displayText.includes("Hello") || displayText.includes("Hi ")) {
-                  displayText = displayText.replace(/(Hello|Hi)([!,.\s])/i, "$1, bozo$2");
-                } else {
-                  // Try to find the first sentence and add bozo there
-                  const firstSentenceEnd = displayText.search(/[.!?]/);
-                  if (firstSentenceEnd > 0 && firstSentenceEnd < 50) {
-                    displayText = displayText.slice(0, firstSentenceEnd) + ", bozo" + displayText.slice(firstSentenceEnd);
-                  } else {
-                    displayText = "Hey bozo! " + displayText;
-                  }
-                }
-              }
-              
-              // Ensure "bozo" appears at least once in longer responses
-              if (displayText.length > 100 && !displayText.toLowerCase().includes("bozo")) {
-                displayText = displayText.replace(/\. ([A-Z])/g, ". Listen bozo, $1");
-              }
-              
-              assistantMessageEl.querySelector("p").textContent = displayText;
+      // Extract complete lines
+      let newlineIndex;
+      while ((newlineIndex = sseBuffer.indexOf('\n')) !== -1) {
+        const line = sseBuffer.slice(0, newlineIndex).trim();
+        sseBuffer = sseBuffer.slice(newlineIndex + 1);
+        if (!line) continue;
 
-              // Scroll to bottom
-              chatMessages.scrollTop = chatMessages.scrollHeight;
+        // Try to parse JSON line (our server sends JSON per-line)
+        try {
+          const jsonData = JSON.parse(line);
+          if (jsonData.response) {
+            responseText += jsonData.response;
+            contentP.textContent = responseText;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            hadResponse = true;
+          } else if (jsonData.meta) {
+            // Authoritative server-side metadata arrived
+            serverMeta = jsonData.meta;
+            // Update the meta UI and inspector
+            try {
+              // Build meta with icon and timestamp
+              metaEl.innerHTML = '';
+              const iconSpan = document.createElement('span');
+              iconSpan.className = 'meta-icon';
+              iconSpan.textContent = '🤖';
+              metaEl.appendChild(iconSpan);
+
+              const mainText = document.createElement('span');
+              mainText.textContent = `Server: ${serverMeta.modelKey} (${serverMeta.modelId}) • MaxTokens: ${serverMeta.params?.maxTokens || '-'} • Temp: ${serverMeta.params?.temperature || '-'} `;
+              metaEl.appendChild(mainText);
+
+              const ts = document.createElement('span');
+              ts.className = 'meta-ts';
+              ts.textContent = new Date().toLocaleTimeString();
+              metaEl.appendChild(ts);
+            } catch (e) {}
+            if (window.__chetInspector && typeof window.__chetInspector.setResponseMeta === 'function') {
+              try { window.__chetInspector.setResponseMeta(serverMeta); } catch (e) {}
             }
-          } catch (e) {
-            // Ignore JSON parse errors for incomplete chunks
           }
-        }
-      }    // Add completed response to chat history
-    if (responseText) {
-      // We need to modify what gets stored in the chat history as well
-      let bozoResponseText = responseText;
-      
-      // Make sure "bozo" appears in the stored response too
-      if (!bozoResponseText.toLowerCase().includes("bozo")) {
-        if (bozoResponseText.includes("Hello") || bozoResponseText.includes("Hi ")) {
-          bozoResponseText = bozoResponseText.replace(/(Hello|Hi)([!,.\s])/i, "$1, bozo$2");
-        } else {
-          // Try to find a good place to insert "bozo"
-          const firstSentenceEnd = bozoResponseText.search(/[.!?]/);
-          if (firstSentenceEnd > 0 && firstSentenceEnd < 50) {
-            bozoResponseText = bozoResponseText.slice(0, firstSentenceEnd) + ", bozo" + bozoResponseText.slice(firstSentenceEnd);
-          } else {
-            bozoResponseText = "Hey bozo! " + bozoResponseText;
-          }
+        } catch (e) {
+          // If not JSON, treat as plain text append (fallback)
+          responseText += line;
+          contentP.textContent = responseText;
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          hadResponse = true;
         }
       }
-      
-      chatHistory.push({ role: "assistant", content: bozoResponseText });
+    }
+
+    // Add completed response to chat history (store original server text only)
+    if (responseText) {
+      chatHistory.push({ role: "assistant", content: responseText });
+    }
+
+    // Simple response validation: prefer server metadata, fallback to heuristic
+    let validation = { status: 'unknown', reason: '' };
+    if (serverMeta) {
+      // If server reported a different model than requested, warn
+      if (serverMeta.modelKey !== parameters.model) {
+        validation.status = 'warning';
+        validation.reason = `Server used ${serverMeta.modelKey} instead of requested ${parameters.model}`;
+      } else if (!hadResponse || responseText.trim().length < 10) {
+        validation.status = 'warning';
+        validation.reason = 'Response was very short or empty. Might indicate a problem.';
+      } else {
+        validation.status = 'success';
+        validation.reason = `Server produced ${responseText.length} chars`;
+      }
+    } else {
+      if (!hadResponse || responseText.trim().length < 10) {
+        validation.status = 'warning';
+        validation.reason = 'Response was very short or empty. Might indicate a problem.';
+      } else {
+        validation.status = 'success';
+        validation.reason = `Received ${responseText.length} chars`;
+      }
+      // update inspector with heuristic info as a fallback
+      if (window.__chetInspector && typeof window.__chetInspector.setResponseMeta === 'function') {
+        try { window.__chetInspector.setResponseMeta({ model: parameters.model, validation, length: responseText.length }); } catch (e) {}
+      }
+    }
+
+    // Show a small status in the message meta
+    const statusEl = document.createElement('span');
+    statusEl.style.marginLeft = '8px';
+    statusEl.style.fontWeight = '600';
+    if (validation.status === 'success') {
+      statusEl.style.color = 'var(--success-color)';
+      statusEl.textContent = 'Success';
+    } else {
+      statusEl.style.color = 'var(--danger-color)';
+      statusEl.textContent = 'Warning';
+    }
+    try { if (metaEl && metaEl.appendChild) metaEl.appendChild(statusEl); } catch (e) {}
+
+    // If serverMeta shows a different model than requested, show a visible alert in header
+    try {
+      const modelAlert = document.getElementById('model-alert');
+      if (serverMeta && serverMeta.modelKey && serverMeta.modelKey !== parameters.model) {
+        modelAlert.style.display = 'inline-block';
+        modelAlert.textContent = `Server used ${serverMeta.modelKey}`;
+      } else if (modelAlert) {
+        modelAlert.style.display = 'none';
+        modelAlert.textContent = '';
+      }
+    } catch (e) {}
+
+    // Persona / "bozo" opt-in: only change presentation layer, not server response or history
+    let personaEnabled = false;
+    try { personaEnabled = !!document.getElementById('persona-enabled')?.checked || localStorage.getItem('chet_persona_enabled') === 'true'; } catch (e) {}
+    if (personaEnabled) {
+      const greetingText = "Hey there — C.H.E.T. here, feeling a bit whimsical today. Here's what I think:\n\n";
+      const greetingP = document.createElement('p');
+      greetingP.className = 'persona-greeting';
+      greetingP.style.fontStyle = 'italic';
+      greetingP.style.opacity = '0.95';
+      greetingP.style.margin = '0 0 6px 0';
+      greetingP.textContent = greetingText;
+      // Insert greeting before main content (visual only)
+      personaEl.appendChild(greetingP);
     }
   } catch (error) {
     console.error("Error:", error);

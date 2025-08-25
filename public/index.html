@@ -125,17 +125,39 @@
             </div>
           </div>
         </div>
+
+        <!-- Developer / Extras -->
+        <h2 class="section-toggle" data-target="dev-section">Dev Tools</h2>
+        <div id="dev-section" class="sidebar-section">
+          <div class="parameter-group">
+            <label class="persona-label">
+              <input type="checkbox" id="persona-enabled"> Enable playful persona
+            </label>
+            <small class="persona-note">When enabled, the UI will present a playful greeting (client-side only).</small>
+          </div>
+
+          <div class="parameter-group">
+            <button id="open-inspector-btn" class="action-btn">Open Request Inspector</button>
+            <div id="request-inspector" class="request-inspector">
+              <div class="inspector-title">Last Request Payload</div>
+              <pre id="inspector-request" class="inspector-pre"></pre>
+              <div class="inspector-title">Last Response Metadata</div>
+              <pre id="inspector-response" class="inspector-pre"></pre>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="chat-container">
         <div class="current-model" id="current-model">
           Model: Loading...
+          <div id="model-alert" class="model-alert"></div>
         </div>
         
         <div id="chat-messages" class="chat-messages">
           <div class="message assistant-message">
             <p>
-              Hello, bozo! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!
+              Hello! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!
             </p>
           </div>
         </div>
@@ -191,6 +213,18 @@
         <div class="modal-actions">
           <button class="modal-btn secondary" id="cancel-mcp">Cancel</button>
           <button class="modal-btn primary" id="save-mcp">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Server Meta Modal -->
+    <div id="server-meta-modal" class="modal">
+      <div class="modal-content">
+        <h3 id="server-meta-title">Server Response Metadata</h3>
+        <pre id="server-meta-json" class="server-meta-body"></pre>
+        <div class="server-meta-actions">
+          <button id="server-meta-copy" class="modal-btn">Copy</button>
+          <button id="server-meta-close" class="modal-btn secondary">Close</button>
         </div>
       </div>
     </div>
