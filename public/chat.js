@@ -82,12 +82,15 @@ let lastServerMeta = null;
 
 // Initialize the application
 async function initialize() {
-  await loadModels();
-  await loadPrompts();
-  await loadMCPServers();
-  setupEventListeners();
-  updateParameterDisplays();
-    console.error("Error loading models:", error);
+  try {
+    await loadModels();
+    await loadPrompts();
+    await loadMCPServers();
+    setupEventListeners();
+    updateParameterDisplays();
+  } catch (err) {
+    // Centralized error handling to avoid referencing an undefined 'error'
+    console.error('Initialization error:', err);
     // Clear select safely and add a single error option
     while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
     const errOpt = document.createElement('option');
@@ -99,16 +102,17 @@ async function initialize() {
     while (modelInfo.firstChild) modelInfo.removeChild(modelInfo.firstChild);
     const errStrong = document.createElement('strong');
     errStrong.style.color = '#FF6B6B';
-    errStrong.textContent = '❌ Error loading models:';
+    errStrong.textContent = '❌ Initialization error:';
     modelInfo.appendChild(errStrong);
     modelInfo.appendChild(document.createElement('br'));
     const msg = document.createElement('div');
-    msg.textContent = error.message || String(error);
+    msg.textContent = err.message || String(err);
     modelInfo.appendChild(msg);
     const small = document.createElement('small');
     small.textContent = 'Check console for details.';
     modelInfo.appendChild(small);
-    showToast("Failed to load models! Check your internet connection.", "error", 5000);
+    if (typeof showToast === 'function') showToast('Initialization failed — check console', 'error', 5000);
+  }
   copyResBtn.textContent = 'Copy Response Meta';
   inspectorControlsWrap.appendChild(copyReqBtn);
   inspectorControlsWrap.appendChild(copyResBtn);
@@ -410,27 +414,27 @@ function setupAccordionSections() {
 async function loadModels() {
   try {
     showToast("Loading available models...", "info", 2000);
+    try {
+      const response = await fetch("/api/models");
+      if (!response.ok) {
+        throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
+      }
     
-    const response = await fetch("/api/models");
-    if (!response.ok) {
-      throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
-    }
+      const models = await response.json();
+      availableModels = {};
     
-    const models = await response.json();
-    availableModels = {};
+      // Clear existing options safely
+      while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
     
-    // Clear existing options
-    modelSelect.innerHTML = "";
-    
-    // Add models to select and internal storage
-    models.forEach((model) => {
-      availableModels[model.key] = model;
+      // Add models to select and internal storage
+      models.forEach((model) => {
+        availableModels[model.key] = model;
       
-      const option = document.createElement("option");
-      option.value = model.key;
-      option.textContent = model.name;
-      modelSelect.appendChild(option);
-    });
+        const option = document.createElement("option");
+        option.value = model.key;
+        option.textContent = model.name;
+        modelSelect.appendChild(option);
+      });
     
     // Set default model (first one)
     if (models.length > 0) {
@@ -444,23 +448,27 @@ async function loadModels() {
     
   } catch (error) {
     console.error("Error loading models:", error);
-    modelSelect.innerHTML = '<option value="">❌ Failed to load models</option>';
-    modelSelect.innerHTML = '<option value="">❌ Failed to load models</option>';
+    // Clear select and add an error option safely
+    while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
+    const errOption = document.createElement('option');
+    errOption.value = '';
+    errOption.textContent = '❌ Failed to load models';
+    modelSelect.appendChild(errOption);
+
     // Build modelInfo content safely
-    modelInfo.innerHTML = '';
+    while (modelInfo.firstChild) modelInfo.removeChild(modelInfo.firstChild);
     const errStrong = document.createElement('strong');
     errStrong.style.color = '#FF6B6B';
     errStrong.textContent = '❌ Error loading models:';
     modelInfo.appendChild(errStrong);
-    const br = document.createElement('br');
-    modelInfo.appendChild(br);
+    modelInfo.appendChild(document.createElement('br'));
     const msg = document.createElement('div');
-    msg.textContent = error.message;
+    msg.textContent = error.message || String(error);
     modelInfo.appendChild(msg);
     const small = document.createElement('small');
     small.textContent = 'Check console for details.';
     modelInfo.appendChild(small);
-    showToast("Failed to load models! Check your internet connection.", "error", 5000);
+    if (typeof showToast === 'function') showToast("Failed to load models! Check your internet connection.", "error", 5000);
   }
 }
 
@@ -1112,7 +1120,8 @@ async function loadPrompts() {
 
 // Render prompts list
 function renderPrompts() {
-  promptsList.innerHTML = '';
+  // Clear prompts list safely
+  while (promptsList.firstChild) promptsList.removeChild(promptsList.firstChild);
   
   if (savedPrompts.length === 0) {
     const empty = document.createElement('div');
@@ -1297,7 +1306,8 @@ async function loadMCPServers() {
 
 // Render MCP servers list
 function renderMCPServers() {
-  mcpList.innerHTML = '';
+  // Clear MCP list safely
+  while (mcpList.firstChild) mcpList.removeChild(mcpList.firstChild);
   
   if (mcpServers.length === 0) {
     const empty = document.createElement('div');

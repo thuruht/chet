@@ -206,8 +206,8 @@ What would you like to work on today?`
       // Add save button
       const saveButton = document.createElement('button');
       saveButton.className = 'save-response-btn';
-      saveButton.innerHTML = '💾 Save Response';
-      saveButton.onclick = () => this.saveResponse(message.content);
+  saveButton.textContent = '💾 Save Response';
+  saveButton.addEventListener('click', () => this.saveResponse(message.content));
       content.appendChild(saveButton);
     }
 
@@ -225,11 +225,19 @@ What would you like to work on today?`
   updateMessageMetadata(messageElement, metadata) {
     const metaElement = messageElement.querySelector('.message-meta');
     if (metaElement) {
-      metaElement.innerHTML = `
-        <span class="meta-icon">🤖</span>
-        <span>Model: ${metadata.modelKey} • Tokens: ${metadata.params?.maxTokens || '-'} • Temp: ${metadata.params?.temperature || '-'}</span>
-        <span class="timestamp">${new Date().toLocaleTimeString()}</span>
-      `;
+      // Clear existing metadata
+      while (metaElement.firstChild) metaElement.removeChild(metaElement.firstChild);
+      const icon = document.createElement('span');
+      icon.className = 'meta-icon';
+      icon.textContent = '🤖';
+      const details = document.createElement('span');
+      details.textContent = `Model: ${metadata.modelKey} • Tokens: ${metadata.params?.maxTokens || '-'} • Temp: ${metadata.params?.temperature || '-'}`;
+      const ts = document.createElement('span');
+      ts.className = 'timestamp';
+      ts.textContent = new Date().toLocaleTimeString();
+      metaElement.appendChild(icon);
+      metaElement.appendChild(details);
+      metaElement.appendChild(ts);
     }
   }
 
@@ -272,7 +280,7 @@ What would you like to work on today?`
   clearChat() {
     this.conversationHistory = [];
     if (this.chatMessages) {
-      this.chatMessages.innerHTML = '';
+      while (this.chatMessages.firstChild) this.chatMessages.removeChild(this.chatMessages.firstChild);
     }
     this.displayWelcomeMessage();
     
