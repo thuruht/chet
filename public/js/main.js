@@ -99,24 +99,62 @@ class CHETApplication {
   displayPrompts(prompts) {
     const promptsList = document.getElementById('prompts-list');
     if (!promptsList) return;
-
-    promptsList.innerHTML = '';
+    while (promptsList.firstChild) promptsList.removeChild(promptsList.firstChild);
 
     prompts.forEach(prompt => {
       const promptItem = document.createElement('div');
       promptItem.className = 'prompt-item';
-      promptItem.innerHTML = `
-        <div class="prompt-header">
-          <h4>${prompt.name}</h4>
-          <div class="prompt-actions">
-            <button onclick="app.usePrompt('${prompt.id}')" title="Use Prompt">📝</button>
-            <button onclick="app.editPrompt('${prompt.id}')" title="Edit">✏️</button>
-            <button onclick="app.deletePrompt('${prompt.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <p class="prompt-content">${prompt.content.substring(0, 100)}${prompt.content.length > 100 ? '...' : ''}</p>
-        ${prompt.tags.length > 0 ? `<div class="prompt-tags">${prompt.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</div>` : ''}
-      `;
+
+      const header = document.createElement('div');
+      header.className = 'prompt-header';
+
+      const h4 = document.createElement('h4');
+      h4.textContent = prompt.name;
+
+      const actions = document.createElement('div');
+      actions.className = 'prompt-actions';
+
+      const useBtn = document.createElement('button');
+      useBtn.title = 'Use Prompt';
+      useBtn.textContent = '📝';
+      useBtn.addEventListener('click', () => this.usePrompt(prompt.id));
+
+      const editBtn = document.createElement('button');
+      editBtn.title = 'Edit';
+      editBtn.textContent = '✏️';
+      editBtn.addEventListener('click', () => this.editPrompt(prompt.id));
+
+      const delBtn = document.createElement('button');
+      delBtn.title = 'Delete';
+      delBtn.textContent = '🗑️';
+      delBtn.addEventListener('click', () => this.deletePrompt(prompt.id));
+
+      actions.appendChild(useBtn);
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+
+      header.appendChild(h4);
+      header.appendChild(actions);
+
+      const contentP = document.createElement('p');
+      contentP.className = 'prompt-content';
+      contentP.textContent = `${prompt.content.substring(0, 100)}${prompt.content.length > 100 ? '...' : ''}`;
+
+      promptItem.appendChild(header);
+      promptItem.appendChild(contentP);
+
+      if (prompt.tags && prompt.tags.length > 0) {
+        const tagsDiv = document.createElement('div');
+        tagsDiv.className = 'prompt-tags';
+        prompt.tags.forEach(tag => {
+          const span = document.createElement('span');
+          span.className = 'tag';
+          span.textContent = tag;
+          tagsDiv.appendChild(span);
+        });
+        promptItem.appendChild(tagsDiv);
+      }
+
       promptsList.appendChild(promptItem);
     });
   }
@@ -168,26 +206,57 @@ class CHETApplication {
   displayMCPServers(servers) {
     const mcpList = document.getElementById('mcp-list');
     if (!mcpList) return;
-
-    mcpList.innerHTML = '';
+    while (mcpList.firstChild) mcpList.removeChild(mcpList.firstChild);
 
     servers.forEach(server => {
       const serverItem = document.createElement('div');
       serverItem.className = `mcp-item ${server.enabled ? 'enabled' : 'disabled'}`;
-      serverItem.innerHTML = `
-        <div class="mcp-header">
-          <h4>${server.name}</h4>
-          <div class="mcp-actions">
-            <button onclick="app.toggleMCPServer('${server.id}')" title="Toggle Enable/Disable">
-              ${server.enabled ? '🟢' : '🔴'}
-            </button>
-            <button onclick="app.editMCPServer('${server.id}')" title="Edit">✏️</button>
-            <button onclick="app.deleteMCPServer('${server.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <p class="mcp-command">${Array.isArray(server.command) ? server.command.join(' ') : server.command}</p>
-        ${server.description ? `<p class="mcp-description">${server.description}</p>` : ''}
-      `;
+
+      const header = document.createElement('div');
+      header.className = 'mcp-header';
+
+      const h4 = document.createElement('h4');
+      h4.textContent = server.name;
+
+      const actions = document.createElement('div');
+      actions.className = 'mcp-actions';
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.title = 'Toggle Enable/Disable';
+      toggleBtn.textContent = server.enabled ? '🟢' : '🔴';
+      toggleBtn.addEventListener('click', () => this.toggleMCPServer(server.id));
+
+      const editBtn = document.createElement('button');
+      editBtn.title = 'Edit';
+      editBtn.textContent = '✏️';
+      editBtn.addEventListener('click', () => this.editMCPServer(server.id));
+
+      const delBtn = document.createElement('button');
+      delBtn.title = 'Delete';
+      delBtn.textContent = '🗑️';
+      delBtn.addEventListener('click', () => this.deleteMCPServer(server.id));
+
+      actions.appendChild(toggleBtn);
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+
+      header.appendChild(h4);
+      header.appendChild(actions);
+
+      const cmd = document.createElement('p');
+      cmd.className = 'mcp-command';
+      cmd.textContent = Array.isArray(server.command) ? server.command.join(' ') : server.command;
+
+      serverItem.appendChild(header);
+      serverItem.appendChild(cmd);
+
+      if (server.description) {
+        const desc = document.createElement('p');
+        desc.className = 'mcp-description';
+        desc.textContent = server.description;
+        serverItem.appendChild(desc);
+      }
+
       mcpList.appendChild(serverItem);
     });
   }
@@ -263,29 +332,52 @@ class CHETApplication {
       border: 1px solid var(--border-color);
     `;
 
-    modal.innerHTML = `
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0; color: var(--primary-color);">${title}</h2>
-        <button class="modal-close" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-light);">×</button>
-      </div>
-      <div class="modal-body">
-        ${content}
-      </div>
-    `;
+    // Header
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
 
-    // Add event listeners
-    const closeBtn = modal.querySelector('.modal-close');
+    const h2 = document.createElement('h2');
+    h2.style.margin = '0';
+    h2.style.color = 'var(--primary-color)';
+    h2.textContent = title;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'modal-close';
+    closeBtn.style.cssText = 'background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-light);';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => document.body.removeChild(overlay));
-    
+
+    header.appendChild(h2);
+    header.appendChild(closeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+
+    if (typeof content === 'string') {
+      try {
+        const frag = document.createRange().createContextualFragment(content);
+        body.appendChild(frag);
+      } catch (e) {
+        body.textContent = content;
+      }
+    } else if (content instanceof Node) {
+      body.appendChild(content);
+    } else {
+      body.textContent = String(content);
+    }
+
+    modal.appendChild(header);
+    modal.appendChild(body);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         document.body.removeChild(overlay);
       }
     });
-
-    // Add to DOM
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
 
     // Focus management
     modal.focus();
