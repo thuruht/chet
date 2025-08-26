@@ -1,23 +1,3 @@
-/** Minimal, clean ModelManager implementation. */
-class ModelManager {
-  constructor() {
-    this.modelSelect = document.getElementById('model-select');
-    this.modelInfo = document.getElementById('model-info');
-    /** Minimal, clean ModelManager implementation. */
-    class ModelManager {
-      constructor() {
-        this.modelSelect = document.getElementById('model-select');
-        this.modelInfo = document.getElementById('model-info');
-        this.currentModelDisplay = document.getElementById('current-model');
-        this.availableModels = {};
-        this.currentModel = null;
-
-        this.parameterControls = {
-          maxTokens: { slider: document.getElementById('max-tokens'), display: document.getElementById('max-tokens-value') },
-          temperature: { slider: document.getElementById('temperature'), display: document.getElementById('temperature-value') },
-          topP: { slider: document.getElementById('top-p'), display: document.getElementById('top-p-value') },
-          topK: { slider: document.getElementById('top-k'), display: document.getElementById('top-k-value') }
-        };
 // Minimal, clean ModelManager implementation.
 class ModelManager {
   constructor() {
@@ -220,25 +200,3 @@ class ModelManager {
 
 window.ModelManager = ModelManager;
 
-            topK: 'Top K: ' + value,
-          };
-          window.showToast(messages[param] || (param + ': ' + value), 'info', 1200);
-        }
-
-        getCurrentParameters() {
-          const params = {};
-          Object.entries(this.parameterControls).forEach(([param, controls]) => {
-            if (!controls || !controls.slider) return;
-            const raw = Number(controls.slider.value);
-            if (param === 'maxTokens' || param === 'topK') params[param] = parseInt(raw);
-            else params[param] = raw;
-          });
-          if (this.seedInput && this.seedInput.value && this.seedInput.value.trim()) params.seed = parseInt(this.seedInput.value.trim());
-          return params;
-        }
-
-        getCurrentModel() { return this.currentModel; }
-      }
-
-      window.ModelManager = ModelManager;
-    return this.currentModel;
