@@ -63,6 +63,37 @@ const mcpEnabledInput = document.getElementById("mcp-enabled");
 const cancelMCPBtn = document.getElementById("cancel-mcp");
 const saveMCPBtn = document.getElementById("save-mcp");
 
+// Inspector and developer controls (ensure fallbacks)
+const openInspectorBtn = document.getElementById('open-inspector-btn');
+const inspector = document.getElementById('request-inspector');
+const inspectorRequest = document.getElementById('inspector-request');
+const inspectorResponse = document.getElementById('inspector-response');
+const personaCheckbox = document.getElementById('persona-enabled');
+
+// Create or locate inspector control wrapper and copy buttons to avoid runtime ReferenceErrors
+let inspectorControlsWrap = document.getElementById('inspector-controls-wrap');
+if (!inspectorControlsWrap) {
+  inspectorControlsWrap = document.createElement('div');
+  inspectorControlsWrap.id = 'inspector-controls-wrap';
+  inspectorControlsWrap.className = 'inspector-controls';
+}
+
+let copyReqBtn = document.getElementById('inspector-copy-req');
+if (!copyReqBtn) {
+  copyReqBtn = document.createElement('button');
+  copyReqBtn.id = 'inspector-copy-req';
+  copyReqBtn.className = 'inspector-btn';
+  copyReqBtn.textContent = 'Copy Request';
+}
+
+let copyResBtn = document.getElementById('inspector-copy-res');
+if (!copyResBtn) {
+  copyResBtn = document.createElement('button');
+  copyResBtn.id = 'inspector-copy-res';
+  copyResBtn.className = 'inspector-btn';
+  copyResBtn.textContent = 'Copy Response Meta';
+}
+
 // Application state
     while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
 let currentModel = null;
