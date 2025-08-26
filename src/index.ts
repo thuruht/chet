@@ -323,28 +323,53 @@ async function handleChatRequest(
     // 2) If not parsed yet, try encoded payload detection (header or presence in raw body)
     if (!body) {
       const isEncodedHeader = request.headers.get('x-encoded-payload') === '1';
-      const looksLikeEncodedInBody = /payloadB64\s*[:=]/i.test(rawBody || '') || /[A-Za-z0-9+/=]{40,}/.test(rawBody || '');
-      if (isEncodedHeader || looksLikeEncodedInBody) {
-        // Try to parse rawBody as JSON first to extract payloadB64
+      if (isEncodedHeader) {
+        // treat rawBody as raw base64 string if content-type is text/plain
         try {
-          const parsedOuter = JSON.parse(rawBody);
-          if (parsedOuter && parsedOuter.payloadB64) {
-            body = JSON.parse(b64decode(parsedOuter.payloadB64)) as ChatRequest;
+          const decoded = b64decode(rawBody.trim());
+          body = JSON.parse(decoded) as ChatRequest;
+        } catch (e) {
+          // if that failed, try extracting payloadB64 field or regex
+          try {
+            const parsedOuter = JSON.parse(rawBody);
+            if (parsedOuter && parsedOuter.payloadB64) {
+              body = JSON.parse(b64decode(parsedOuter.payloadB64)) as ChatRequest;
+            }
+          } catch (_) {
+            const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
+            const m = (rawBody || '').match(regex);
+            const candidate = m ? (m[1] || m[2]) : null;
+            if (candidate) {
+              try { body = JSON.parse(b64decode(candidate)) as ChatRequest; } catch (_) { }
+            }
+            if (!body) {
+              const m2 = (rawBody || '').match(/([A-Za-z0-9+/=]{40,})/);
+              if (m2) {
+                try { body = JSON.parse(b64decode(m2[1])) as ChatRequest; } catch (_) { }
+              }
+            }
           }
-        } catch (_) {
-          // not strict JSON; try to extract base64 token via regex
-          const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
-          const m = (rawBody || '').match(regex);
-          const candidate = m ? (m[1] || m[2]) : null;
-          if (candidate) {
-            try { body = JSON.parse(b64decode(candidate)) as ChatRequest; }
-            catch (e) { /* fallthrough */ }
-          }
-          if (!body) {
-            // fallback: find any long base64-like substring
-            const m2 = (rawBody || '').match(/([A-Za-z0-9+/=]{40,})/);
-            if (m2) {
-              try { body = JSON.parse(b64decode(m2[1])) as ChatRequest; } catch (e) { /* fallthrough */ }
+        }
+      } else {
+        const looksLikeEncodedInBody = /payloadB64\s*[:=]/i.test(rawBody || '') || /[A-Za-z0-9+/=]{40,}/.test(rawBody || '');
+        if (looksLikeEncodedInBody) {
+          try {
+            const parsedOuter = JSON.parse(rawBody);
+            if (parsedOuter && parsedOuter.payloadB64) {
+              body = JSON.parse(b64decode(parsedOuter.payloadB64)) as ChatRequest;
+            }
+          } catch (_) {
+            const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
+            const m = (rawBody || '').match(regex);
+            const candidate = m ? (m[1] || m[2]) : null;
+            if (candidate) {
+              try { body = JSON.parse(b64decode(candidate)) as ChatRequest; } catch (_) { }
+            }
+            if (!body) {
+              const m2 = (rawBody || '').match(/([A-Za-z0-9+/=]{40,})/);
+              if (m2) {
+                try { body = JSON.parse(b64decode(m2[1])) as ChatRequest; } catch (_) { }
+              }
             }
           }
         }
