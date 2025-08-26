@@ -309,7 +309,32 @@ async function handleChatRequest(
     // Attempt to parse JSON (but provide rawBody in error messages if parsing fails)
     let body: ChatRequest;
     try {
-      body = rawBody ? (JSON.parse(rawBody) as ChatRequest) : ({ messages: [] } as ChatRequest);
+      // If client explicitly encoded the payload (helps survive proxies), decode it
+      const isEncoded = request.headers.get('x-encoded-payload') === '1' || /payloadB64\s*:/i.test(rawBody || '');
+      if (isEncoded) {
+        try {
+          // Try to extract JSON and decode
+          let parsedOuter = JSON.parse(rawBody);
+          if (parsedOuter && parsedOuter.payloadB64) {
+            const decoded = typeof atob === 'function' ? atob(parsedOuter.payloadB64) : Buffer.from(parsedOuter.payloadB64, 'base64').toString('utf8');
+            body = JSON.parse(decoded) as ChatRequest;
+          } else {
+            // If not proper JSON, try to find base64 substring
+            const m = (rawBody || '').match(/([A-Za-z0-9+/=]{40,})/);
+            if (m) {
+              const decoded = typeof atob === 'function' ? atob(m[1]) : Buffer.from(m[1], 'base64').toString('utf8');
+              body = JSON.parse(decoded) as ChatRequest;
+            } else {
+              throw new Error('Encoded payload not found');
+            }
+          }
+        } catch (e) {
+          console.error('Failed to decode encoded payload:', e, 'rawBody:', rawBody);
+          return new Response(JSON.stringify({ error: 'Failed to decode encoded payload', detail: String(e), rawPreview: (rawBody || '').slice(0,200) }), { status: 400, headers: { 'content-type': 'application/json' } });
+        }
+      } else {
+        body = rawBody ? (JSON.parse(rawBody) as ChatRequest) : ({ messages: [] } as ChatRequest);
+      }
     } catch (parseErr) {
       console.error('Failed to parse JSON body for /api/chat. Raw body:', rawBody);
       return new Response(JSON.stringify({ error: 'Invalid JSON', detail: rawBody ? rawBody.slice(0, 200) : '' }), { status: 400, headers: { 'content-type': 'application/json' } });

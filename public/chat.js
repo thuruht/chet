@@ -861,16 +861,27 @@ async function sendMessage() {
       }
     }
 
-    // Send request to API with parameters
+    // Prepare payload and encode as base64 to survive proxies that rewrite JSON
+    const originalPayload = { messages: chatHistory, ...parameters };
+    const jsonPayload = JSON.stringify(originalPayload);
+    // Safe base64 encode for UTF-8
+    function safeB64Encode(str) {
+      try {
+        return btoa(unescape(encodeURIComponent(str)));
+      } catch (e) {
+        return btoa(str);
+      }
+    }
+    const bodyToSend = JSON.stringify({ payloadB64: safeB64Encode(jsonPayload) });
+
+    // Send encoded payload to backend
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-Encoded-Payload": "1",
       },
-      body: JSON.stringify({
-        messages: chatHistory,
-        ...parameters,
-      }),
+      body: bodyToSend,
     });
 
     // Handle errors and surface server-provided messages when possible
