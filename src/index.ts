@@ -314,18 +314,34 @@ async function handleChatRequest(
       if (isEncoded) {
         try {
           // Try to extract JSON and decode
-          let parsedOuter = JSON.parse(rawBody);
+          let parsedOuter: any = null;
+          try {
+            parsedOuter = JSON.parse(rawBody);
+          } catch (outerParseErr) {
+            parsedOuter = null;
+          }
+
           if (parsedOuter && parsedOuter.payloadB64) {
             const decoded = typeof atob === 'function' ? atob(parsedOuter.payloadB64) : Buffer.from(parsedOuter.payloadB64, 'base64').toString('utf8');
             body = JSON.parse(decoded) as ChatRequest;
           } else {
-            // If not proper JSON, try to find base64 substring
-            const m = (rawBody || '').match(/([A-Za-z0-9+/=]{40,})/);
-            if (m) {
-              const decoded = typeof atob === 'function' ? atob(m[1]) : Buffer.from(m[1], 'base64').toString('utf8');
+            // Try to extract payloadB64 even if quotes were stripped by proxy: payloadB64:XXXXX or "payloadB64":XXXXX
+            const raw = rawBody || '';
+            const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
+            const m = raw.match(regex);
+            const candidate = m ? (m[1] || m[2]) : null;
+            if (candidate) {
+              const decoded = typeof atob === 'function' ? atob(candidate) : Buffer.from(candidate, 'base64').toString('utf8');
               body = JSON.parse(decoded) as ChatRequest;
             } else {
-              throw new Error('Encoded payload not found');
+              // As a last resort, find any long base64-looking substring
+              const m2 = raw.match(/([A-Za-z0-9+/=]{40,})/);
+              if (m2) {
+                const decoded = typeof atob === 'function' ? atob(m2[1]) : Buffer.from(m2[1], 'base64').toString('utf8');
+                body = JSON.parse(decoded) as ChatRequest;
+              } else {
+                throw new Error('Encoded payload not found');
+              }
             }
           }
         } catch (e) {
