@@ -278,86 +278,93 @@ async function handleChatRequest(
   env: Env,
 ): Promise<Response> {
   try {
-    // Read raw request body first so we can diagnose malformed inputs
+    // Read the raw request body (text) so we can attempt several parsing strategies
     const rawBody = await request.text();
-
-    // Temporary debug endpoint: if client sends X-Debug: 1, return parsed body and env binding info
+    // debug header handling
     if (request.headers.get('x-debug') === '1') {
       const bindings = {
         hasAI: !!(env && (env as any).AI),
         hasKV: !!(env && (env as any).CHET_KV),
         hasASSETS: !!(env && (env as any).ASSETS),
       };
-      // Try to parse if possible
       let parsed = null;
-      try { parsed = rawBody ? JSON.parse(rawBody) : null; } catch (e) { parsed = null; }
+      try { parsed = rawBody ? JSON.parse(rawBody) : null; } catch (_) { parsed = null; }
       return new Response(JSON.stringify({ ok: true, rawBody: rawBody || null, parsed, bindings }), { headers: { 'content-type': 'application/json' } });
     }
 
-    // Quick sanity check: if the raw body doesn't look like JSON, provide a helpful error.
-    const rawTrim = rawBody ? rawBody.trim() : '';
-    if (rawTrim && !rawTrim.startsWith('{')) {
-      console.error('Received non-JSON request body for /api/chat. Raw body preview:', rawTrim.slice(0,200));
-      return new Response(JSON.stringify({
-        error: 'Invalid JSON payload',
-        detail: 'The request body does not start with a JSON object. This often happens when an HTTP proxy rewrites the body (e.g., "messages:[role:user]").',
-        advice: 'If you are using a proxy or VPN, try disabling it or set NO_PROXY/--noproxy for local requests. Ensure the client sends a valid JSON object and Content-Type: application/json.',
-        rawPreview: rawTrim.slice(0,200)
-      }), { status: 400, headers: { 'content-type': 'application/json' } });
+    // decode helper
+    const b64decode = (s: string) => {
+      try { return (typeof atob === 'function') ? atob(s) : Buffer.from(s, 'base64').toString('utf8'); }
+      catch (e) { throw e; }
+    };
+
+    let body: ChatRequest | null = null;
+    const contentType = (request.headers.get('content-type') || '').toLowerCase();
+
+    // 1) If form data, try to extract payloadB64
+    try {
+      if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+        try {
+          const form = await request.formData();
+          const fval = form.get('payloadB64') || form.get('payload_b64') || form.get('payload');
+          if (fval) {
+            const candidate = typeof fval === 'string' ? fval : (fval as any).toString();
+            const decoded = b64decode(candidate);
+            body = JSON.parse(decoded) as ChatRequest;
+          }
+        } catch (_) {
+          // ignore and continue
+        }
+      }
+    } catch (e) {
+      // ignore form parsing exceptions and continue
     }
 
-    // Attempt to parse JSON (but provide rawBody in error messages if parsing fails)
-    let body: ChatRequest;
-    try {
-      // If client explicitly encoded the payload (helps survive proxies), decode it
-      const isEncoded = request.headers.get('x-encoded-payload') === '1' || /payloadB64\s*:/i.test(rawBody || '');
-      if (isEncoded) {
+    // 2) If not parsed yet, try encoded payload detection (header or presence in raw body)
+    if (!body) {
+      const isEncodedHeader = request.headers.get('x-encoded-payload') === '1';
+      const looksLikeEncodedInBody = /payloadB64\s*[:=]/i.test(rawBody || '') || /[A-Za-z0-9+/=]{40,}/.test(rawBody || '');
+      if (isEncodedHeader || looksLikeEncodedInBody) {
+        // Try to parse rawBody as JSON first to extract payloadB64
         try {
-          // Try to extract JSON and decode
-          let parsedOuter: any = null;
-          try {
-            parsedOuter = JSON.parse(rawBody);
-          } catch (outerParseErr) {
-            parsedOuter = null;
-          }
-
+          const parsedOuter = JSON.parse(rawBody);
           if (parsedOuter && parsedOuter.payloadB64) {
-            const decoded = typeof atob === 'function' ? atob(parsedOuter.payloadB64) : Buffer.from(parsedOuter.payloadB64, 'base64').toString('utf8');
-            body = JSON.parse(decoded) as ChatRequest;
-          } else {
-            // Try to extract payloadB64 even if quotes were stripped by proxy: payloadB64:XXXXX or "payloadB64":XXXXX
-            const raw = rawBody || '';
-            const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
-            const m = raw.match(regex);
-            const candidate = m ? (m[1] || m[2]) : null;
-            if (candidate) {
-              const decoded = typeof atob === 'function' ? atob(candidate) : Buffer.from(candidate, 'base64').toString('utf8');
-              body = JSON.parse(decoded) as ChatRequest;
-            } else {
-              // As a last resort, find any long base64-looking substring
-              const m2 = raw.match(/([A-Za-z0-9+/=]{40,})/);
-              if (m2) {
-                const decoded = typeof atob === 'function' ? atob(m2[1]) : Buffer.from(m2[1], 'base64').toString('utf8');
-                body = JSON.parse(decoded) as ChatRequest;
-              } else {
-                throw new Error('Encoded payload not found');
-              }
+            body = JSON.parse(b64decode(parsedOuter.payloadB64)) as ChatRequest;
+          }
+        } catch (_) {
+          // not strict JSON; try to extract base64 token via regex
+          const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
+          const m = (rawBody || '').match(regex);
+          const candidate = m ? (m[1] || m[2]) : null;
+          if (candidate) {
+            try { body = JSON.parse(b64decode(candidate)) as ChatRequest; }
+            catch (e) { /* fallthrough */ }
+          }
+          if (!body) {
+            // fallback: find any long base64-like substring
+            const m2 = (rawBody || '').match(/([A-Za-z0-9+/=]{40,})/);
+            if (m2) {
+              try { body = JSON.parse(b64decode(m2[1])) as ChatRequest; } catch (e) { /* fallthrough */ }
             }
           }
-        } catch (e) {
-          console.error('Failed to decode encoded payload:', e, 'rawBody:', rawBody);
-          return new Response(JSON.stringify({ error: 'Failed to decode encoded payload', detail: String(e), rawPreview: (rawBody || '').slice(0,200) }), { status: 400, headers: { 'content-type': 'application/json' } });
         }
-      } else {
-        body = rawBody ? (JSON.parse(rawBody) as ChatRequest) : ({ messages: [] } as ChatRequest);
       }
-    } catch (parseErr) {
-      console.error('Failed to parse JSON body for /api/chat. Raw body:', rawBody);
-      return new Response(JSON.stringify({ error: 'Invalid JSON', detail: rawBody ? rawBody.slice(0, 200) : '' }), { status: 400, headers: { 'content-type': 'application/json' } });
     }
-    const { 
-      messages = [], 
-      model = "llama-3.3-70b",
+
+    // 3) If still not parsed, try direct JSON parse (most common path)
+    if (!body) {
+      try {
+        body = rawBody ? (JSON.parse(rawBody) as ChatRequest) : ({ messages: [] } as ChatRequest);
+      } catch (parseErr) {
+        console.error('Failed to parse JSON body for /api/chat. Raw body:', rawBody);
+        return new Response(JSON.stringify({ error: 'Invalid JSON', detail: rawBody ? rawBody.slice(0, 200) : '', rawPreview: rawBody ? rawBody.slice(0,200) : null }), { status: 400, headers: { 'content-type': 'application/json' } });
+      }
+    }
+
+    // now we have a parsed body
+    const {
+      messages = [],
+      model = 'llama-3.3-70b',
       maxTokens,
       temperature,
       topP,
@@ -369,7 +376,7 @@ async function handleChatRequest(
       useJsonMode,
       tools,
       responseFormat,
-    } = body;
+    } = body as ChatRequest;
 
     // Basic validation: messages should be an array
     if (!Array.isArray(messages)) {
