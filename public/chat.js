@@ -863,7 +863,7 @@ async function sendMessage() {
 
     // Prepare payload and encode as base64 to survive proxies that rewrite JSON
     const originalPayload = { messages: chatHistory, ...parameters };
-    const jsonPayload = JSON.stringify(originalPayload);
+  const jsonPayload = JSON.stringify(originalPayload);
     // Safe base64 encode for UTF-8
     function safeB64Encode(str) {
       try {
@@ -872,16 +872,15 @@ async function sendMessage() {
         return btoa(str);
       }
     }
-    const bodyToSend = JSON.stringify({ payloadB64: safeB64Encode(jsonPayload) });
-
-    // Send encoded payload to backend
+    const b64 = safeB64Encode(jsonPayload);
+    // Send raw base64 string in body with text/plain so proxies less likely to rewrite
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "text/plain",
         "X-Encoded-Payload": "1",
       },
-      body: bodyToSend,
+      body: b64,
     });
 
     // Handle errors and surface server-provided messages when possible
