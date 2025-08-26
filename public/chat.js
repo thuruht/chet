@@ -414,28 +414,28 @@ function setupAccordionSections() {
 async function loadModels() {
   try {
     showToast("Loading available models...", "info", 2000);
-    try {
-      const response = await fetch("/api/models");
-      if (!response.ok) {
-        throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
-      }
-    
-      const models = await response.json();
-      availableModels = {};
-    
-      // Clear existing options safely
-      while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
-    
-      // Add models to select and internal storage
-      models.forEach((model) => {
-        availableModels[model.key] = model;
-      
-        const option = document.createElement("option");
-        option.value = model.key;
-        option.textContent = model.name;
-        modelSelect.appendChild(option);
-      });
-    
+
+    const response = await fetch("/api/models");
+    if (!response.ok) {
+      throw new Error(`Failed to load models: ${response.status} ${response.statusText}`);
+    }
+
+    const models = await response.json();
+    availableModels = {};
+
+    // Clear existing options safely
+    while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
+
+    // Add models to select and internal storage
+    models.forEach((model) => {
+      availableModels[model.key] = model;
+
+      const option = document.createElement("option");
+      option.value = model.key;
+      option.textContent = model.name;
+      modelSelect.appendChild(option);
+    });
+
     // Set default model (first one)
     if (models.length > 0) {
       const defaultModelKey = models[0].key;
@@ -445,7 +445,6 @@ async function loadModels() {
     } else {
       throw new Error("No models available");
     }
-    
   } catch (error) {
     console.error("Error loading models:", error);
     // Clear select and add an error option safely
