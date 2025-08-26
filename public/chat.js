@@ -846,10 +846,19 @@ async function sendMessage() {
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    // Validate model exists
-    if (!availableModels[parameters.model]) {
-      showToast(`Selected model "${parameters.model}" is not available`, 'error', 4000);
-      throw new Error('Invalid model selected');
+    // Ensure a valid model key is present and available
+    if (!parameters.model || !availableModels[parameters.model]) {
+      // Try to pick a sensible fallback (first available model)
+      const keys = Object.keys(availableModels || {});
+      if (keys.length > 0) {
+        const fallback = keys[0];
+        console.warn(`Model "${parameters.model}" not available, falling back to ${fallback}`);
+        parameters.model = fallback;
+        try { showToast(`No valid model selected — falling back to ${availableModels[fallback].name}`, 'warning', 3500); } catch (e) {}
+      } else {
+        showToast('No models are available. Cannot send message.', 'error', 4000);
+        throw new Error('No models available');
+      }
     }
 
     // Send request to API with parameters
@@ -864,9 +873,24 @@ async function sendMessage() {
       }),
     });
 
-    // Handle errors
+    // Handle errors and surface server-provided messages when possible
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: Failed to get response`);
+      // Try to read JSON or text body for a helpful error
+      let bodyText = '';
+      try {
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const j = await response.json().catch(() => null);
+          bodyText = j && j.error ? j.error : JSON.stringify(j);
+        } else {
+          bodyText = await response.text().catch(() => '');
+        }
+      } catch (e) {
+        bodyText = '';
+      }
+      console.error('Chat API error', response.status, bodyText);
+      const message = bodyText ? `Server error: ${bodyText}` : `HTTP ${response.status}: Failed to get response`;
+      throw new Error(message);
     }
 
     // Process streaming response robustly, handling JSON-per-line and a final meta line

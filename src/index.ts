@@ -280,6 +280,15 @@ async function handleChatRequest(
   try {
     // Parse JSON request body
     const body = (await request.json()) as ChatRequest;
+    // Temporary debug endpoint: if client sends X-Debug: 1, return parsed body and env binding info
+    if (request.headers.get('x-debug') === '1') {
+      const bindings = {
+        hasAI: !!(env && (env as any).AI),
+        hasKV: !!(env && (env as any).CHET_KV),
+        hasASSETS: !!(env && (env as any).ASSETS),
+      };
+      return new Response(JSON.stringify({ ok: true, body, bindings }), { headers: { 'content-type': 'application/json' } });
+    }
     const { 
       messages = [], 
       model = "llama-3.3-70b",
@@ -296,12 +305,22 @@ async function handleChatRequest(
       responseFormat,
     } = body;
 
+    // Basic validation: messages should be an array
+    if (!Array.isArray(messages)) {
+      console.error('Invalid chat request: messages is not an array', { messages });
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: messages must be an array' }),
+        { status: 400, headers: { 'content-type': 'application/json' } }
+      );
+    }
+
     // Get model configuration
     const modelConfig = MODELS[model];
     if (!modelConfig) {
+      console.error('Invalid model specified in chat request:', model);
       return new Response(
-        JSON.stringify({ error: "Invalid model specified" }),
-        { status: 400, headers: { "content-type": "application/json" } }
+        JSON.stringify({ error: `Invalid model specified: ${String(model)}` }),
+        { status: 400, headers: { 'content-type': 'application/json' } }
       );
     }
 
@@ -420,13 +439,14 @@ async function handleChatRequest(
     }
   } catch (error) {
     console.error("Error processing chat request:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to process request" }),
-      {
-        status: 500,
-        headers: { "content-type": "application/json" },
-      },
-    );
+    const detail = error && (error as any).message ? (error as any).message : String(error);
+    const stack = error && (error as any).stack ? String((error as any).stack).split('\n').slice(0,5).join('\n') : undefined;
+    const payload: any = { error: "Failed to process request", detail };
+    if (stack) payload.stack = stack;
+    return new Response(JSON.stringify(payload), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
   }
 }
 
