@@ -278,8 +278,9 @@ async function handleChatRequest(
   env: Env,
 ): Promise<Response> {
   try {
-    // Parse JSON request body
-    const body = (await request.json()) as ChatRequest;
+    // Read raw request body first so we can diagnose malformed inputs
+    const rawBody = await request.text();
+
     // Temporary debug endpoint: if client sends X-Debug: 1, return parsed body and env binding info
     if (request.headers.get('x-debug') === '1') {
       const bindings = {
@@ -287,7 +288,31 @@ async function handleChatRequest(
         hasKV: !!(env && (env as any).CHET_KV),
         hasASSETS: !!(env && (env as any).ASSETS),
       };
-      return new Response(JSON.stringify({ ok: true, body, bindings }), { headers: { 'content-type': 'application/json' } });
+      // Try to parse if possible
+      let parsed = null;
+      try { parsed = rawBody ? JSON.parse(rawBody) : null; } catch (e) { parsed = null; }
+      return new Response(JSON.stringify({ ok: true, rawBody: rawBody || null, parsed, bindings }), { headers: { 'content-type': 'application/json' } });
+    }
+
+    // Quick sanity check: if the raw body doesn't look like JSON, provide a helpful error.
+    const rawTrim = rawBody ? rawBody.trim() : '';
+    if (rawTrim && !rawTrim.startsWith('{')) {
+      console.error('Received non-JSON request body for /api/chat. Raw body preview:', rawTrim.slice(0,200));
+      return new Response(JSON.stringify({
+        error: 'Invalid JSON payload',
+        detail: 'The request body does not start with a JSON object. This often happens when an HTTP proxy rewrites the body (e.g., "messages:[role:user]").',
+        advice: 'If you are using a proxy or VPN, try disabling it or set NO_PROXY/--noproxy for local requests. Ensure the client sends a valid JSON object and Content-Type: application/json.',
+        rawPreview: rawTrim.slice(0,200)
+      }), { status: 400, headers: { 'content-type': 'application/json' } });
+    }
+
+    // Attempt to parse JSON (but provide rawBody in error messages if parsing fails)
+    let body: ChatRequest;
+    try {
+      body = rawBody ? (JSON.parse(rawBody) as ChatRequest) : ({ messages: [] } as ChatRequest);
+    } catch (parseErr) {
+      console.error('Failed to parse JSON body for /api/chat. Raw body:', rawBody);
+      return new Response(JSON.stringify({ error: 'Invalid JSON', detail: rawBody ? rawBody.slice(0, 200) : '' }), { status: 400, headers: { 'content-type': 'application/json' } });
     }
     const { 
       messages = [], 
