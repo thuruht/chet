@@ -863,7 +863,7 @@ async function sendMessage() {
 
     // Prepare payload and encode as base64 to survive proxies that rewrite JSON
     const originalPayload = { messages: chatHistory, ...parameters };
-  const jsonPayload = JSON.stringify(originalPayload);
+    const jsonPayload = JSON.stringify(originalPayload);
     // Safe base64 encode for UTF-8
     function safeB64Encode(str) {
       try {
@@ -873,14 +873,19 @@ async function sendMessage() {
       }
     }
     const b64 = safeB64Encode(jsonPayload);
-    // Send raw base64 string in body with text/plain so proxies less likely to rewrite
+
+    // Use FormData (multipart/form-data) with a 'payloadB64' field. Many proxies and
+    // gateways are less likely to mangle form fields compared to raw text/plain bodies.
+    const form = new FormData();
+    form.append('payloadB64', b64);
+
     const response = await fetch("/api/chat", {
       method: "POST",
+      // Do NOT set Content-Type header so the browser attaches the correct boundary
       headers: {
-        "Content-Type": "text/plain",
         "X-Encoded-Payload": "1",
       },
-      body: b64,
+      body: form,
     });
 
     // Handle errors and surface server-provided messages when possible

@@ -278,39 +278,107 @@ async function handleChatRequest(
   env: Env,
 ): Promise<Response> {
   try {
-    // Read the raw request body (text) so we can attempt several parsing strategies
-    const rawBody = await request.text();
-    // debug header handling
-    if (request.headers.get('x-debug') === '1') {
-      const bindings = {
-        hasAI: !!(env && (env as any).AI),
-        hasKV: !!(env && (env as any).CHET_KV),
-        hasASSETS: !!(env && (env as any).ASSETS),
-      };
-      let parsed = null;
-      try { parsed = rawBody ? JSON.parse(rawBody) : null; } catch (_) { parsed = null; }
-      return new Response(JSON.stringify({ ok: true, rawBody: rawBody || null, parsed, bindings }), { headers: { 'content-type': 'application/json' } });
+    // Decide how to read the body depending on Content-Type. The request body
+    // can only be consumed once, so prefer parsing form data for
+    // multipart/form-data or application/x-www-form-urlencoded so we can
+    // extract `payloadB64` safely when the frontend submits FormData.
+    const contentType = (request.headers.get('content-type') || '').toLowerCase();
+    let rawBody: string | null = null;
+    let parsedForm: FormData | null = null;
+
+    if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+      try {
+        parsedForm = await request.formData();
+        const fval = parsedForm.get('payloadB64') || parsedForm.get('payload_b64') || parsedForm.get('payload');
+        if (fval) {
+          rawBody = typeof fval === 'string' ? (fval as string) : String(fval);
+        } else {
+          const parts: string[] = [];
+          for (const entry of parsedForm.entries()) {
+            const k = String(entry[0]);
+            const v = entry[1];
+            parts.push(`${k}=${String(v).slice(0,200)}`);
+          }
+          rawBody = parts.join('&');
+        }
+      } catch (e) {
+        // If form parsing fails, fall back to raw text body
+        rawBody = await request.text();
+      }
+    } else {
+      rawBody = await request.text();
     }
 
     // decode helper
     const b64decode = (s: string) => {
-      try { return (typeof atob === 'function') ? atob(s) : Buffer.from(s, 'base64').toString('utf8'); }
-      catch (e) { throw e; }
+      try {
+        if (typeof atob === 'function') return atob(s);
+        // @ts-ignore - Node Buffer may not be present in Worker runtime, but in local tests it's fine
+        if (typeof Buffer !== 'undefined') return Buffer.from(s, 'base64').toString('utf8');
+        throw new Error('No base64 decode available');
+      } catch (e) {
+        throw e;
+      }
     };
 
-    let body: ChatRequest | null = null;
-    const contentType = (request.headers.get('content-type') || '').toLowerCase();
+    // Try to repair common mangling where proxies remove quotes/braces. This is best-effort.
+    const tryRepairMangledJson = (text: string) => {
+      const attempts: string[] = [];
+      // Raw as-is
+      attempts.push(text);
+
+      // Try URL-decoding (some proxies percent-encode)
+      try { attempts.push(decodeURIComponent(text)); } catch (_) {}
+
+      // Replace unquoted keys like: key: with "key":
+      try {
+        let s = text;
+        // Quote keys (after { or ,)
+        s = s.replace(/([\{,\[]\s*)([a-zA-Z_][a-zA-Z0-9_\-]*)\s*:/g, '$1"$2":');
+        // Quote bareword values (value without quotes, not starting with { [ number true false null)
+        s = s.replace(/:\s*([a-zA-Z_\-\/\. ]+)([,\}\]])/g, ':"$1"$2');
+        attempts.push(s);
+      } catch (_) {}
+
+      // As a last resort, try to wrap simple role:value pairs into objects
+      try {
+        let s2 = text;
+        s2 = s2.replace(/role:([a-zA-Z_\-]+)/g, '"role":"$1"');
+        s2 = s2.replace(/content:([^,\}\]]+)/g, '"content":"$1"');
+        attempts.push(s2);
+      } catch (_) {}
+
+      return attempts;
+    };
+
+    // If X-Debug is set return diagnostic info showing attempts
+    const debugInfo: any = { attempts: [] };
+
+    // 2.5) capture attempts for repair heuristics when encoded header present
+    const recordAttempt = (label: string, value: string) => {
+      try { debugInfo.attempts.push({ label, snippet: value && value.length > 200 ? value.slice(0,200) : value }); } catch (_) {}
+    };
+
+  let body: ChatRequest | null = null;
 
     // 1) If form data, try to extract payloadB64
     try {
       if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
         try {
-          const form = await request.formData();
+          const form = parsedForm || await request.formData();
           const fval = form.get('payloadB64') || form.get('payload_b64') || form.get('payload');
           if (fval) {
             const candidate = typeof fval === 'string' ? fval : (fval as any).toString();
             const decoded = b64decode(candidate);
-            body = JSON.parse(decoded) as ChatRequest;
+            recordAttempt('form_payload_decoded', decoded);
+            try { body = JSON.parse(decoded) as ChatRequest; } catch (e) {
+              const repairs = tryRepairMangledJson(decoded || '');
+              for (let i = 0; i < repairs.length; i++) {
+                const attempt = repairs[i];
+                recordAttempt(`form_payload_repair_${i}`, attempt);
+                try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+              }
+            }
           }
         } catch (_) {
           // ignore and continue
@@ -327,25 +395,69 @@ async function handleChatRequest(
         // treat rawBody as raw base64 string if content-type is text/plain
         try {
           const decoded = b64decode(rawBody.trim());
-          body = JSON.parse(decoded) as ChatRequest;
+          recordAttempt('decoded_base64', decoded);
+          try {
+            body = JSON.parse(decoded) as ChatRequest;
+          } catch (e) {
+            // Try repair heuristics on the decoded string
+            const repairs = tryRepairMangledJson(decoded || '');
+            for (let i = 0; i < repairs.length; i++) {
+              const attempt = repairs[i];
+              recordAttempt(`decoded_repair_${i}`, attempt);
+              try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+            }
+          }
         } catch (e) {
           // if that failed, try extracting payloadB64 field or regex
           try {
             const parsedOuter = JSON.parse(rawBody);
             if (parsedOuter && parsedOuter.payloadB64) {
-              body = JSON.parse(b64decode(parsedOuter.payloadB64)) as ChatRequest;
+              const dec = b64decode(parsedOuter.payloadB64);
+              recordAttempt('outer_payloadB64_decoded', dec);
+              try {
+                body = JSON.parse(dec) as ChatRequest;
+              } catch (_) {
+                const repairs = tryRepairMangledJson(dec || '');
+                for (let i = 0; i < repairs.length; i++) {
+                  const attempt = repairs[i];
+                  recordAttempt(`outer_payload_repair_${i}`, attempt);
+                  try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+                }
+              }
             }
           } catch (_) {
-            const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
+            const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+_\-/=]+)"|([A-Za-z0-9+_\-/=]+))/i;
             const m = (rawBody || '').match(regex);
             const candidate = m ? (m[1] || m[2]) : null;
             if (candidate) {
-              try { body = JSON.parse(b64decode(candidate)) as ChatRequest; } catch (_) { }
+              try {
+                const dec2 = b64decode(candidate);
+                recordAttempt('regex_candidate_decoded', dec2);
+                try { body = JSON.parse(dec2) as ChatRequest; } catch (_) {
+                  const repairs = tryRepairMangledJson(dec2 || '');
+                  for (let i = 0; i < repairs.length; i++) {
+                    const attempt = repairs[i];
+                    recordAttempt(`regex_decoded_repair_${i}`, attempt);
+                    try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+                  }
+                }
+              } catch (_) { }
             }
             if (!body) {
-              const m2 = (rawBody || '').match(/([A-Za-z0-9+/=]{40,})/);
+              const m2 = (rawBody || '').match(/([A-Za-z0-9+_\-/=]{40,})/);
               if (m2) {
-                try { body = JSON.parse(b64decode(m2[1])) as ChatRequest; } catch (_) { }
+                try {
+                  const dec3 = b64decode(m2[1]);
+                  recordAttempt('loose_b64_decoded', dec3);
+                  try { body = JSON.parse(dec3) as ChatRequest; } catch (_) {
+                    const repairs = tryRepairMangledJson(dec3 || '');
+                    for (let i = 0; i < repairs.length; i++) {
+                      const attempt = repairs[i];
+                      recordAttempt(`loose_b64_repair_${i}`, attempt);
+                      try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+                    }
+                  }
+                } catch (_) {}
               }
             }
           }
@@ -354,9 +466,24 @@ async function handleChatRequest(
         const looksLikeEncodedInBody = /payloadB64\s*[:=]/i.test(rawBody || '') || /[A-Za-z0-9+/=]{40,}/.test(rawBody || '');
         if (looksLikeEncodedInBody) {
           try {
-            const parsedOuter = JSON.parse(rawBody);
-            if (parsedOuter && parsedOuter.payloadB64) {
-              body = JSON.parse(b64decode(parsedOuter.payloadB64)) as ChatRequest;
+            try {
+              const parsedOuter = JSON.parse(rawBody);
+              if (parsedOuter && parsedOuter.payloadB64) {
+                body = JSON.parse(b64decode(parsedOuter.payloadB64)) as ChatRequest;
+              }
+            } catch (_) {
+              const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+_\-/=]+)"|([A-Za-z0-9+_\-/=]+))/i;
+              const m = (rawBody || '').match(regex);
+              const candidate = m ? (m[1] || m[2]) : null;
+              if (candidate) {
+                try { body = JSON.parse(b64decode(candidate)) as ChatRequest; } catch (_) { }
+              }
+              if (!body) {
+                const m2 = (rawBody || '').match(/([A-Za-z0-9+_\-/=]{40,})/);
+                if (m2) {
+                  try { body = JSON.parse(b64decode(m2[1])) as ChatRequest; } catch (_) { }
+                }
+              }
             }
           } catch (_) {
             const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+/=]+)"|([A-Za-z0-9+/=]+))/i;
@@ -379,11 +506,32 @@ async function handleChatRequest(
     // 3) If still not parsed, try direct JSON parse (most common path)
     if (!body) {
       try {
+        recordAttempt('raw', rawBody || '');
         body = rawBody ? (JSON.parse(rawBody) as ChatRequest) : ({ messages: [] } as ChatRequest);
       } catch (parseErr) {
-        console.error('Failed to parse JSON body for /api/chat. Raw body:', rawBody);
-        return new Response(JSON.stringify({ error: 'Invalid JSON', detail: rawBody ? rawBody.slice(0, 200) : '', rawPreview: rawBody ? rawBody.slice(0,200) : null }), { status: 400, headers: { 'content-type': 'application/json' } });
+        // Attempt repair heuristics
+        const repairs = tryRepairMangledJson(rawBody || '');
+        for (let i = 0; i < repairs.length; i++) {
+          const attempt = repairs[i];
+          recordAttempt(`repair_${i}`, attempt);
+          try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+        }
+
+        if (!body) {
+          console.error('Failed to parse JSON body for /api/chat. Raw body:', rawBody);
+          const payloadSnippet = rawBody ? rawBody.slice(0, 200) : '';
+          const resp = { error: 'Invalid JSON', detail: payloadSnippet, rawPreview: payloadSnippet, debug: debugInfo };
+          return new Response(JSON.stringify(resp), { status: 400, headers: { 'content-type': 'application/json' } });
+        }
       }
+    }
+
+    if (request.headers.get('x-debug') === '1') {
+      return new Response(JSON.stringify({ ok: true, rawBody: rawBody || null, parsed: body, debug: debugInfo, bindings: {
+        hasAI: !!(env && (env as any).AI),
+        hasKV: !!(env && (env as any).CHET_KV),
+        hasASSETS: !!(env && (env as any).ASSETS),
+      }}), { headers: { 'content-type': 'application/json' } });
     }
 
     // now we have a parsed body
