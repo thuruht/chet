@@ -872,20 +872,22 @@ async function sendMessage() {
         return btoa(str);
       }
     }
-    const b64 = safeB64Encode(jsonPayload);
+  const b64 = safeB64Encode(jsonPayload);
+  // Convert to URL-safe base64 (base64url) to reduce risk of proxies mangling + and / characters
+  const b64url = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-    // Use FormData (multipart/form-data) with a 'payloadB64' field. Many proxies and
-    // gateways are less likely to mangle form fields compared to raw text/plain bodies.
-    const form = new FormData();
-    form.append('payloadB64', b64);
+    // Use application/x-www-form-urlencoded with a payloadB64 field. URL-encoding
+    // is generally compact and survives via many proxies better than raw JSON.
+    const params = new URLSearchParams();
+  params.append('payloadB64', b64url);
 
     const response = await fetch("/api/chat", {
       method: "POST",
-      // Do NOT set Content-Type header so the browser attaches the correct boundary
       headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
         "X-Encoded-Payload": "1",
       },
-      body: form,
+      body: params.toString(),
     });
 
     // Handle errors and surface server-provided messages when possible

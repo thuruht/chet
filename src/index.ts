@@ -278,43 +278,51 @@ async function handleChatRequest(
   env: Env,
 ): Promise<Response> {
   try {
-    // Decide how to read the body depending on Content-Type. The request body
-    // can only be consumed once, so prefer parsing form data for
-    // multipart/form-data or application/x-www-form-urlencoded so we can
-    // extract `payloadB64` safely when the frontend submits FormData.
+    // Decide how to read the body depending on Content-Type and proxy mangling.
+    // The request body can only be consumed once, so clone the request and
+    // attempt to parse FormData from the clone first. This makes parsing
+    // robust even if proxies strip or mangle the Content-Type header.
     const contentType = (request.headers.get('content-type') || '').toLowerCase();
+    const requestClone = request.clone();
     let rawBody: string | null = null;
     let parsedForm: FormData | null = null;
 
-    if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
-      try {
-        parsedForm = await request.formData();
-        const fval = parsedForm.get('payloadB64') || parsedForm.get('payload_b64') || parsedForm.get('payload');
-        if (fval) {
-          rawBody = typeof fval === 'string' ? (fval as string) : String(fval);
-        } else {
-          const parts: string[] = [];
-          for (const entry of parsedForm.entries()) {
-            const k = String(entry[0]);
-            const v = entry[1];
-            parts.push(`${k}=${String(v).slice(0,200)}`);
-          }
-          rawBody = parts.join('&');
+    try {
+      // Try to parse form data from the cloned request regardless of Content-Type.
+      parsedForm = await requestClone.formData();
+      const fval = parsedForm.get('payloadB64') || parsedForm.get('payload_b64') || parsedForm.get('payload');
+      if (fval) {
+        rawBody = typeof fval === 'string' ? (fval as string) : String(fval);
+      } else {
+        const parts: string[] = [];
+        for (const entry of parsedForm.entries()) {
+          const k = String(entry[0]);
+          const v = entry[1];
+          parts.push(`${k}=${String(v).slice(0,200)}`);
         }
-      } catch (e) {
-        // If form parsing fails, fall back to raw text body
-        rawBody = await request.text();
+        rawBody = parts.join('&');
       }
-    } else {
+    } catch (e) {
+      // clone.formData() failed (not form data) or clone body couldn't be parsed as form; fall back
+      // to reading the original request as text. This keeps the original request body unread
+      // until now so we can confidently inspect it.
       rawBody = await request.text();
     }
 
     // decode helper
     const b64decode = (s: string) => {
       try {
-        if (typeof atob === 'function') return atob(s);
+        // Normalize base64url to standard base64: replace -_ back to +/ and pad with '='
+        let str = s.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = str.length % 4;
+        if (pad === 2) str += '==';
+        else if (pad === 3) str += '=';
+        else if (pad !== 0) {
+          // pad == 1 is invalid base64 length; fall through and let decoder throw
+        }
+        if (typeof atob === 'function') return atob(str);
         // @ts-ignore - Node Buffer may not be present in Worker runtime, but in local tests it's fine
-        if (typeof Buffer !== 'undefined') return Buffer.from(s, 'base64').toString('utf8');
+        if (typeof Buffer !== 'undefined') return Buffer.from(str, 'base64').toString('utf8');
         throw new Error('No base64 decode available');
       } catch (e) {
         throw e;
@@ -361,11 +369,11 @@ async function handleChatRequest(
 
   let body: ChatRequest | null = null;
 
-    // 1) If form data, try to extract payloadB64
+    // 1) If we successfully parsed FormData from the clone, try to extract payloadB64
     try {
-      if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+      if (parsedForm) {
         try {
-          const form = parsedForm || await request.formData();
+          const form = parsedForm;
           const fval = form.get('payloadB64') || form.get('payload_b64') || form.get('payload');
           if (fval) {
             const candidate = typeof fval === 'string' ? fval : (fval as any).toString();
@@ -390,6 +398,26 @@ async function handleChatRequest(
 
     // 2) If not parsed yet, try encoded payload detection (header or presence in raw body)
     if (!body) {
+      // Quick attempt: if rawBody looks like urlencoded form (contains '='), try URLSearchParams
+      try {
+        if (rawBody && /[=&]/.test(rawBody)) {
+          const usp = new URLSearchParams(rawBody);
+          const candidate = usp.get('payloadB64') || usp.get('payload_b64') || usp.get('payload');
+          if (candidate) {
+            const dec = b64decode(candidate);
+            recordAttempt('urlencoded_raw_payload_decoded', dec);
+            try { body = JSON.parse(dec) as ChatRequest; }
+            catch (e) {
+              const repairs = tryRepairMangledJson(dec || '');
+              for (let i = 0; i < repairs.length; i++) {
+                const attempt = repairs[i];
+                recordAttempt(`urlencoded_raw_repair_${i}`, attempt);
+                try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+              }
+            }
+          }
+        }
+      } catch (_) {}
       const isEncodedHeader = request.headers.get('x-encoded-payload') === '1';
       if (isEncodedHeader) {
         // treat rawBody as raw base64 string if content-type is text/plain
