@@ -881,15 +881,45 @@ async function sendMessage() {
     const params = new URLSearchParams();
   params.append('payloadB64', b64url);
 
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "X-Encoded-Payload": "1",
-      },
-      body: params.toString(),
-    });
+    // Proxy-safe fetch with automatic fallback when bodies are stripped
+    async function fetchChatWithFallback(b64url) {
+      const baseURL = '/api/chat';
+      const headers = {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'X-Encoded-Payload': '1',
+      };
+      const bodyParams = new URLSearchParams();
+      bodyParams.append('payloadB64', b64url);
 
+      // First attempt: standard urlencoded body
+      let resp = await fetch(baseURL, { method: 'POST', headers, body: bodyParams.toString() });
+
+      if (!resp.ok) {
+        // Inspect error to detect likely proxy body stripping
+        let errText = '';
+        try {
+          const ct = resp.headers.get('content-type') || '';
+          if (ct.includes('application/json')) {
+            const j = await resp.json().catch(() => null);
+            if (j) errText = j.error || j.detail || JSON.stringify(j);
+          } else {
+            errText = await resp.text().catch(() => '');
+          }
+        } catch (_) {}
+        const likelyProxy = resp.status === 400 && /invalid json|payloadb64/i.test(errText || '');
+
+        if (likelyProxy) {
+          // Second attempt: move payload to query string; omit Content-Type
+          const url = `${baseURL}?payloadB64=${encodeURIComponent(b64url)}`;
+          resp = await fetch(url, { method: 'POST', headers: { 'X-Encoded-Payload': '1' } });
+        }
+      }
+
+      return resp;
+    }
+
+    const response = await fetchChatWithFallback(b64url);
+    
     // Handle errors and surface server-provided messages when possible
     if (!response.ok) {
       // Try to read JSON or text body for a helpful error
@@ -898,7 +928,7 @@ async function sendMessage() {
         const ct = response.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
           const j = await response.json().catch(() => null);
-          bodyText = j && j.error ? j.error : JSON.stringify(j);
+          bodyText = j && (j.error || j.detail) ? (j.error || j.detail) : JSON.stringify(j);
         } else {
           bodyText = await response.text().catch(() => '');
         }
