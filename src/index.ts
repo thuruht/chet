@@ -420,72 +420,117 @@ async function handleChatRequest(
       } catch (_) {}
       const isEncodedHeader = request.headers.get('x-encoded-payload') === '1';
       if (isEncodedHeader) {
-        // treat rawBody as raw base64 string if content-type is text/plain
+        // Robustly detect encoded payload no matter how proxies delivered it
+        // 1) Try URLSearchParams on rawBody first (handles application/x-www-form-urlencoded)
         try {
-          const decoded = b64decode(rawBody.trim());
-          recordAttempt('decoded_base64', decoded);
-          try {
-            body = JSON.parse(decoded) as ChatRequest;
-          } catch (e) {
-            // Try repair heuristics on the decoded string
-            const repairs = tryRepairMangledJson(decoded || '');
-            for (let i = 0; i < repairs.length; i++) {
-              const attempt = repairs[i];
-              recordAttempt(`decoded_repair_${i}`, attempt);
-              try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
-            }
-          }
-        } catch (e) {
-          // if that failed, try extracting payloadB64 field or regex
-          try {
-            const parsedOuter = JSON.parse(rawBody);
-            if (parsedOuter && parsedOuter.payloadB64) {
-              const dec = b64decode(parsedOuter.payloadB64);
-              recordAttempt('outer_payloadB64_decoded', dec);
-              try {
-                body = JSON.parse(dec) as ChatRequest;
-              } catch (_) {
-                const repairs = tryRepairMangledJson(dec || '');
+          if (!body && rawBody && /[=&]/.test(rawBody)) {
+            const usp2 = new URLSearchParams(rawBody);
+            const cand2 = usp2.get('payloadB64') || usp2.get('payload_b64') || usp2.get('payload');
+            if (cand2) {
+              const dec2 = b64decode(cand2);
+              recordAttempt('encoded_header_urlencoded_payload_decoded', dec2);
+              try { body = JSON.parse(dec2) as ChatRequest; }
+              catch (e) {
+                const repairs = tryRepairMangledJson(dec2 || '');
                 for (let i = 0; i < repairs.length; i++) {
                   const attempt = repairs[i];
-                  recordAttempt(`outer_payload_repair_${i}`, attempt);
+                  recordAttempt(`encoded_header_urlencoded_repair_${i}`, attempt);
                   try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
                 }
               }
             }
-          } catch (_) {
-            const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+_\-/=]+)"|([A-Za-z0-9+_\-/=]+))/i;
-            const m = (rawBody || '').match(regex);
-            const candidate = m ? (m[1] || m[2]) : null;
-            if (candidate) {
-              try {
-                const dec2 = b64decode(candidate);
-                recordAttempt('regex_candidate_decoded', dec2);
-                try { body = JSON.parse(dec2) as ChatRequest; } catch (_) {
-                  const repairs = tryRepairMangledJson(dec2 || '');
+          }
+        } catch (_) {}
+
+        // 2) Try query string (some proxies convert body to query params)
+        if (!body) {
+          try {
+            const u = new URL(request.url);
+            const qCand = u.searchParams.get('payloadB64') || u.searchParams.get('payload_b64') || u.searchParams.get('payload');
+            if (qCand) {
+              const decQ = b64decode(qCand);
+              recordAttempt('encoded_header_query_payload_decoded', decQ);
+              try { body = JSON.parse(decQ) as ChatRequest; }
+              catch (e) {
+                const repairs = tryRepairMangledJson(decQ || '');
+                for (let i = 0; i < repairs.length; i++) {
+                  const attempt = repairs[i];
+                  recordAttempt(`encoded_header_query_repair_${i}`, attempt);
+                  try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        // 3) If still nothing, treat raw body as raw base64 string
+        if (!body) {
+          try {
+            const decoded = b64decode((rawBody || '').trim());
+            recordAttempt('decoded_base64', decoded);
+            try {
+              body = JSON.parse(decoded) as ChatRequest;
+            } catch (e) {
+              // Try repair heuristics on the decoded string
+              const repairs = tryRepairMangledJson(decoded || '');
+              for (let i = 0; i < repairs.length; i++) {
+                const attempt = repairs[i];
+                recordAttempt(`decoded_repair_${i}`, attempt);
+                try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+              }
+            }
+          } catch (e) {
+            // if that failed, try extracting payloadB64 field or regex
+            try {
+              const parsedOuter = JSON.parse(rawBody || '');
+              if (parsedOuter && parsedOuter.payloadB64) {
+                const dec = b64decode(parsedOuter.payloadB64);
+                recordAttempt('outer_payloadB64_decoded', dec);
+                try {
+                  body = JSON.parse(dec) as ChatRequest;
+                } catch (_) {
+                  const repairs = tryRepairMangledJson(dec || '');
                   for (let i = 0; i < repairs.length; i++) {
                     const attempt = repairs[i];
-                    recordAttempt(`regex_decoded_repair_${i}`, attempt);
+                    recordAttempt(`outer_payload_repair_${i}`, attempt);
                     try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
                   }
                 }
-              } catch (_) { }
-            }
-            if (!body) {
-              const m2 = (rawBody || '').match(/([A-Za-z0-9+_\-/=]{40,})/);
-              if (m2) {
+              }
+            } catch (_) {
+              const regex = /payloadB64\s*[:=]\s*(?:"([A-Za-z0-9+_\-/=]+)"|([A-Za-z0-9+_\-/=]+))/i;
+              const m = (rawBody || '').match(regex);
+              const candidate = m ? (m[1] || m[2]) : null;
+              if (candidate) {
                 try {
-                  const dec3 = b64decode(m2[1]);
-                  recordAttempt('loose_b64_decoded', dec3);
-                  try { body = JSON.parse(dec3) as ChatRequest; } catch (_) {
-                    const repairs = tryRepairMangledJson(dec3 || '');
+                  const dec2 = b64decode(candidate);
+                  recordAttempt('regex_candidate_decoded', dec2);
+                  try { body = JSON.parse(dec2) as ChatRequest; } catch (_) {
+                    const repairs = tryRepairMangledJson(dec2 || '');
                     for (let i = 0; i < repairs.length; i++) {
                       const attempt = repairs[i];
-                      recordAttempt(`loose_b64_repair_${i}`, attempt);
+                      recordAttempt(`regex_decoded_repair_${i}`, attempt);
                       try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
                     }
                   }
-                } catch (_) {}
+                } catch (_) { }
+              }
+              if (!body) {
+                const m2 = (rawBody || '').match(/([A-Za-z0-9+_\-/=]{40,})/);
+                if (m2) {
+                  try {
+                    const dec3 = b64decode(m2[1]);
+                    recordAttempt('loose_b64_decoded', dec3);
+                    try { body = JSON.parse(dec3) as ChatRequest; } catch (_) {
+                      const repairs = tryRepairMangledJson(dec3 || '');
+                      for (let i = 0; i < repairs.length; i++) {
+                        const attempt = repairs[i];
+                        recordAttempt(`loose_b64_repair_${i}`, attempt);
+                        try { body = JSON.parse(attempt) as ChatRequest; break; } catch (_) { body = null; }
+                      }
+                    }
+                  } catch (_) {}
+                }
               }
             }
           }
