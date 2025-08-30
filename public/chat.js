@@ -971,9 +971,11 @@ async function sendMessage() {
       // Extract complete lines
       let newlineIndex;
       while ((newlineIndex = sseBuffer.indexOf('\n')) !== -1) {
-        const line = sseBuffer.slice(0, newlineIndex).trim();
+        let line = sseBuffer.slice(0, newlineIndex).trim();
         sseBuffer = sseBuffer.slice(newlineIndex + 1);
         if (!line) continue;
+        // Handle SSE-style lines prefixed with 'data:'
+        if (line.startsWith('data:')) line = line.slice(5).trim();
 
         // Try to parse JSON line (our server sends JSON per-line)
         try {
@@ -986,6 +988,7 @@ async function sendMessage() {
           } else if (jsonData.meta) {
             // Authoritative server-side metadata arrived
             serverMeta = jsonData.meta;
+            lastServerMeta = serverMeta;
             // Update the meta UI and inspector
             try {
               // Build meta with icon and timestamp
@@ -1046,6 +1049,54 @@ async function sendMessage() {
           chatMessages.scrollTop = chatMessages.scrollHeight;
           hadResponse = true;
         }
+      }
+    }
+
+    // Flush any remaining buffered content that may not end with a newline
+    const leftover = sseBuffer.trim();
+    if (leftover) {
+      let line = leftover;
+      if (line.startsWith('data:')) line = line.slice(5).trim();
+      try {
+        const jsonData = JSON.parse(line);
+        if (jsonData.response) {
+          responseText += jsonData.response;
+          contentP.textContent = responseText;
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          hadResponse = true;
+        } else if (jsonData.meta) {
+          serverMeta = jsonData.meta;
+          lastServerMeta = serverMeta;
+          try {
+            while (metaEl.firstChild) metaEl.removeChild(metaEl.firstChild);
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'meta-icon';
+            iconSpan.textContent = '🤖';
+            metaEl.appendChild(iconSpan);
+            const mainText = document.createElement('span');
+            mainText.textContent = `Server: ${serverMeta.modelKey} (${serverMeta.modelId}) • MaxTokens: ${serverMeta.params?.maxTokens || '-'} • Temp: ${serverMeta.params?.temperature || '-' } `;
+            metaEl.appendChild(mainText);
+            const ts = document.createElement('span');
+            ts.className = 'meta-ts';
+            ts.textContent = new Date().toLocaleTimeString();
+            metaEl.appendChild(ts);
+          } catch (e) {}
+          if (window.__chetInspector && typeof window.__chetInspector.setResponseMeta === 'function') {
+            try { window.__chetInspector.setResponseMeta(serverMeta); } catch (e) {}
+          }
+        } else {
+          // Not a recognized JSON envelope; treat as plain text
+          responseText += line;
+          contentP.textContent = responseText;
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          hadResponse = true;
+        }
+      } catch (e) {
+        // Not JSON; append as plain text
+        responseText += line;
+        contentP.textContent = responseText;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        hadResponse = true;
       }
     }
 
