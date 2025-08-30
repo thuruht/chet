@@ -1,0 +1,41 @@
+# C.H.E.T. Wrangler Configuration
+name = "chet"
+main = "src/app.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+# Static assets for the frontend
+[assets]
+binding = "ASSETS"
+directory = "./public"
+
+# Enable observability
+[observability]
+enabled = true
+
+# AI binding for Workers AI
+[ai]
+binding = "AI"
+
+# KV namespace for prompts, MCP servers and other data
+[[kv_namespaces]]
+binding = "CHET_KV"
+id = "07fb69cb761049c6ba59250c50135039"
+
+# Public route
+[routes]
+pattern = "chet.distorted.work/*"
+custom_domain = true
+
+# Source maps for better debugging
+upload_source_maps = true
+
+# Build settings for Vite
+[build]
+command = "npm run build"
+watch_dir = ["src", "public"]
+
+# Development settings
+[dev]
+port = 8787
+local_protocol = "http"

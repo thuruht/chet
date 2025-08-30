@@ -2,6 +2,7 @@
   "name": "chet",
   "description": "A simple chat application powered by Cloudflare Workers AI",
   "private": true,
+  "type": "module",
   "cloudflare": {
     "label": "LLM Chat App",
     "products": [
@@ -17,11 +18,19 @@
     "preview_image_url": "https://imagedelivery.net/wSMYJvS3Xw-n339CbDyDIA/153a71bf-d89c-4425-e510-0c7488f22500/public",
     "publish": true
   },
+  "dependencies": {
+    "@cloudflare/agents": "^1.3.1",
+    "@cloudflare/opaque-ts": "^0.0.10",
+    "hono": "^4.5.0"
+  },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.8.44",
     "@cloudflare/workers-types": "^4.20250425.0",
     "@types/node": "24.0.4",
+    "esbuild": "^0.20.2",
+    "prettier": "^3.2.5",
     "typescript": "5.8.3",
+    "vite": "^5.2.10",
     "vitest": "3.2.4",
     "wrangler": "4.21.x"
   },
@@ -31,6 +40,8 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
-    "test": "vitest"
+    "test": "vitest",
+    "build": "vite build",
+    "format": "prettier --write ."
   }
 }

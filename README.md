@@ -1,30 +1,29 @@
-# LLM Chat Application Template
+# C.H.E.T. - Chat Helper for (almost) Every Task
 
-A simple, ready-to-deploy chat application template powered by Cloudflare Workers AI. This template provides a clean starting point for building AI chat applications with streaming responses.
-
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/llm-chat-app-template)
-
-<!-- dash-content-start -->
-
-## Demo
-
-This template demonstrates how to build an AI-powered chat interface using Cloudflare Workers AI with streaming responses. It features:
-
-- Real-time streaming of AI responses using Server-Sent Events (SSE)
-- Easy customization of models and system prompts
-- Support for AI Gateway integration
-- Clean, responsive UI that works on mobile and desktop
+A modern, modular chat application powered by Cloudflare Workers AI and the Agents SDK. This application provides a robust, production-ready foundation for building AI-powered chat applications with a clean architecture.
 
 ## Features
 
-- 💬 Simple and responsive chat interface
+- 💬 Simple and responsive chat interface with sidebar navigation
 - ⚡ Server-Sent Events (SSE) for streaming responses
-- 🧠 Powered by Cloudflare Workers AI LLMs
-- 🛠️ Built with TypeScript and Cloudflare Workers
-- 📱 Mobile-friendly design
+- 🧠 Powered by Cloudflare Workers AI and Agents SDK
+- 🛠️ Built with TypeScript, Hono, and modern best practices
+- 📱 Mobile-friendly design with responsive sidebar
 - 🔄 Maintains chat history on the client
-- 🔎 Built-in Observability logging
-<!-- dash-content-end -->
+- 📦 KV storage for saved prompts and MCP server configurations
+- 🔎 Built-in observability logging and error handling
+- 🔒 Proxy-safe API communication
+- 🧩 Modular architecture for easy extension
+
+## Architecture
+
+C.H.E.T. is built with a modern, modular architecture:
+
+- **Frontend**: Clean, responsive HTML/CSS/JS UI
+- **Backend**: Hono router with modular API endpoints
+- **State Management**: Cloudflare KV for persistence
+- **Agent System**: Cloudflare Agents SDK for LLM orchestration
+- **Type Safety**: TypeScript with opaque-ts for typed bindings
 
 ## Getting Started
 
@@ -32,15 +31,15 @@ This template demonstrates how to build an AI-powered chat interface using Cloud
 
 - [Node.js](https://nodejs.org/) (v18 or newer)
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
-- A Cloudflare account with Workers AI access
+- A Cloudflare account with Workers AI access and KV storage
 
 ### Installation
 
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/cloudflare/templates.git
-   cd templates/llm-chat-app
+   git clone https://github.com/yourusername/chet.git
+   cd chet
    ```
 
 2. Install dependencies:
@@ -76,10 +75,10 @@ npm run deploy
 
 ### Monitor
 
-View real-time logs associated with any deployed Worker:
+View real-time logs associated with your deployed Worker:
 
 ```bash
-npm wrangler tail
+npx wrangler tail
 ```
 
 ## Project Structure
@@ -88,66 +87,75 @@ npm wrangler tail
 /
 ├── public/             # Static assets
 │   ├── index.html      # Chat UI HTML
-│   └── chat.js         # Chat UI frontend script
-├── src/
-│   ├── index.ts        # Main Worker entry point
-│   └── types.ts        # TypeScript type definitions
+│   ├── styles.css      # CSS styles
+│   ├── chat.js         # Main chat logic
+│   └── js/             # JS modules
+│       ├── model-manager.js      # Model parameter handling
+│       ├── chat-manager.js       # Chat UI handling
+│       ├── ui-utils.js           # UI utilities
+│       ├── main.js               # App orchestration
+│       └── stream-parser.js      # Streaming parser
+│
+├── src/                # Backend source code
+│   ├── app.ts          # Hono app setup
+│   ├── index.ts        # Worker entry point
+│   ├── api/            # API route handlers
+│   │   ├── models.ts   # Models API
+│   │   ├── chat.ts     # Chat API
+│   │   ├── prompts.ts  # Prompts API
+│   │   ├── mcp-servers.ts # MCP servers API
+│   │   └── file.ts     # File save API
+│   │
+│   ├── lib/            # Core libraries
+│   │   ├── types.ts    # TypeScript type definitions
+│   │   ├── config.ts   # Configuration
+│   │   └── agent-manager.ts # Agent management
+│   │
+│   ├── middleware/     # Hono middleware
+│   │   └── error-handler.ts # Error handling
+│   │
+│   └── utils/          # Utilities
+│       └── request-parser.ts # Request parsing
+│
 ├── test/               # Test files
-├── wrangler.jsonc      # Cloudflare Worker configuration
+│   └── stream-parser.test.js # Streaming parser tests
+│
+├── wrangler.toml       # Cloudflare Worker configuration
+├── vite.config.ts      # Vite bundler configuration
 ├── tsconfig.json       # TypeScript configuration
-└── README.md           # This documentation
+└── README.md           # Documentation
 ```
-
-## How It Works
-
-### Backend
-
-The backend is built with Cloudflare Workers and uses the Workers AI platform to generate responses. The main components are:
-
-1. **API Endpoint** (`/api/chat`): Accepts POST requests with chat messages and streams responses
-2. **Streaming**: Uses Server-Sent Events (SSE) for real-time streaming of AI responses
-3. **Workers AI Binding**: Connects to Cloudflare's AI service via the Workers AI binding
-
-### Frontend
-
-The frontend is a simple HTML/CSS/JavaScript application that:
-
-1. Presents a chat interface
-2. Sends user messages to the API
-3. Processes streaming responses in real-time
-4. Maintains chat history on the client side
 
 ## Customization
 
-### Changing the Model
+### Adding New Models
 
-To use a different AI model, update the `MODEL_ID` constant in `src/index.ts`. You can find available models in the [Cloudflare Workers AI documentation](https://developers.cloudflare.com/workers-ai/models/).
+To add new AI models, update the `MODELS` object in `src/lib/config.ts`. You can find available models in the [Cloudflare Workers AI documentation](https://developers.cloudflare.com/workers-ai/models/).
 
-### Using AI Gateway
+### Creating New API Routes
 
-The template includes commented code for AI Gateway integration, which provides additional capabilities like rate limiting, caching, and analytics.
+The application uses Hono for routing. To add a new API endpoint:
 
-To enable AI Gateway:
-
-1. [Create an AI Gateway](https://dash.cloudflare.com/?to=/:account/ai/ai-gateway) in your Cloudflare dashboard
-2. Uncomment the gateway configuration in `src/index.ts`
-3. Replace `YOUR_GATEWAY_ID` with your actual AI Gateway ID
-4. Configure other gateway options as needed:
-   - `skipCache`: Set to `true` to bypass gateway caching
-   - `cacheTtl`: Set the cache time-to-live in seconds
-
-Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
+1. Create a new file in `src/api/` directory
+2. Create a new Hono router and define your routes
+3. Export the router and import it in `src/app.ts`
+4. Mount the router at the desired path
 
 ### Modifying the System Prompt
 
-The default system prompt can be changed by updating the `SYSTEM_PROMPT` constant in `src/index.ts`.
+The default system prompt can be changed by updating the `SYSTEM_PROMPT` constant in `src/lib/config.ts`.
 
-### Styling
+### Using the Agents SDK
 
-The UI styling is contained in the `<style>` section of `public/index.html`. You can modify the CSS variables at the top to quickly change the color scheme.
+The application includes integration with Cloudflare's Agents SDK for advanced LLM orchestration. To use agents:
+
+1. Update the agent configurations in `src/lib/config.ts`
+2. Use the `AgentManager` class from `src/lib/agent-manager.ts`
 
 ## Resources
 
 - [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
 - [Cloudflare Workers AI Documentation](https://developers.cloudflare.com/workers-ai/)
-- [Workers AI Models](https://developers.cloudflare.com/workers-ai/models/)
+- [Hono Documentation](https://hono.dev/)
+- [Cloudflare Agents SDK](https://github.com/cloudflare/agents)
+- [opaque-ts Documentation](https://github.com/cloudflare/opaque-ts)
