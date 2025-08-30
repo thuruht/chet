@@ -777,12 +777,15 @@ function getCurrentParameters() {
  * Sends a message to the chat API and processes the response
  */
 async function sendMessage() {
+  // Prevent rapid double triggers (Enter + click, etc.)
+  if (isProcessing) return;
+
   const message = userInput.value.trim();
 
   // Don't send empty messages or if no model selected
-  if (message === "" || isProcessing || !currentModel) return;
+  if (message === "" || !currentModel) return;
 
-  // Disable input while processing
+  // Mark processing and disable input immediately
   isProcessing = true;
   userInput.disabled = true;
   sendButton.disabled = true;
@@ -918,7 +921,10 @@ async function sendMessage() {
       return resp;
     }
 
-    const response = await fetchChatWithFallback(b64url);
+  // Reduce scroll anchoring churn during streaming
+  try { chatMessages.style.setProperty('overflow-anchor', 'none'); } catch (e) {}
+
+  const response = await fetchChatWithFallback(b64url);
     
     // Handle errors and surface server-provided messages when possible
     if (!response.ok) {
@@ -1122,6 +1128,8 @@ async function sendMessage() {
       `Sorry, there was an error processing your request: ${error.message}`,
     );
   } finally {
+    // Restore scroll anchoring behavior
+    try { chatMessages.style.removeProperty('overflow-anchor'); } catch (e) {}
     // Hide typing indicator
     typingIndicator.classList.remove("visible");
 
