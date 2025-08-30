@@ -1,4 +1,3 @@
-import { Agent, createAgent } from '@cloudflare/agents';
 import type { Env } from './types.js';
 import { AGENT_CONFIGS, MODELS } from './config.js';
 
@@ -19,21 +18,46 @@ export async function createChetAgent(
   
   const systemPrompt = customSystemPrompt || config.systemPrompt;
   
-  const agent = createAgent({
-    model: {
-      provider: 'cloudflare',
-      model: modelConfig.id as string,
-      apiKey: '', // Not needed for Workers AI binding
-    },
-    messages: [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-    ],
-    // Optional streaming handler
-    stream: true,
-  });
+  // Simple agent implementation since we don't have the full agents SDK
+  const agent = {
+    model: modelConfig.id as string,
+    systemPrompt,
+    
+    async createChat() {
+      return {
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          }
+        ],
+        
+        async sendMessage(content: string) {
+          const messages = [
+            ...this.messages,
+            { role: 'user', content }
+          ];
+          
+          try {
+            const response = await env.AI.run(modelConfig.id as string, {
+              messages,
+              stream: true,
+            });
+            
+            this.messages.push(
+              { role: 'user', content },
+              { role: 'assistant', content: '' } // Will be updated with streaming content
+            );
+            
+            return response;
+          } catch (error) {
+            console.error('Error calling AI model:', error);
+            throw error;
+          }
+        }
+      };
+    }
+  };
   
   return agent;
 }
@@ -42,7 +66,7 @@ export async function createChetAgent(
  * Manage agent instances
  */
 export class AgentManager {
-  private agents: Map<string, Agent> = new Map();
+  private agents: Map<string, any> = new Map();
   private env: Env;
   
   constructor(env: Env) {
