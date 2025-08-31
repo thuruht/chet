@@ -28,9 +28,10 @@ if (process.env.NODE_ENV !== 'production') {
 app.get('*', async (c) => {
   const { pathname } = new URL(c.req.url);
   
-  // Skip API routes: let Hono route matching handle them
+  // Only handle static assets for non-API paths
   if (pathname.startsWith('/api/')) {
-    return c.json({ error: 'Not found' }, 404);
+    // Do nothing: let Hono route matching handle API routes
+    return;
   }
   
   // Handle static assets with the ASSETS binding
