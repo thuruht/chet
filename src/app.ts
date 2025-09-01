@@ -30,8 +30,8 @@ app.get('*', async (c) => {
   
   // Only handle static assets for non-API paths
   if (pathname.startsWith('/api/')) {
-    // Do nothing: let Hono route matching handle API routes
-    return;
+    // Finalize context for API paths to avoid context errors
+    return await c.notFound();
   }
   
   // Handle static assets with the ASSETS binding

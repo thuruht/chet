@@ -11,54 +11,48 @@ export async function createChetAgent(
 ) {
   const config = AGENT_CONFIGS[configName];
   const modelConfig = MODELS[config.model];
-  
   if (!modelConfig) {
     throw new Error(`Model ${config.model} not found in configuration`);
   }
-  
   const systemPrompt = customSystemPrompt || config.systemPrompt;
-  
-  // Simple agent implementation since we don't have the full agents SDK
+  // Use provider abstraction for model calls
+  const { defaultAIProvider } = await import('./ai-provider.js');
   const agent = {
     model: modelConfig.id as string,
     systemPrompt,
-    
     async createChat() {
       return {
         messages: [
           {
             role: 'system',
             content: systemPrompt,
-          }
+          } as import('./types.js').ChatMessage
         ],
-        
         async sendMessage(content: string) {
           const messages = [
             ...this.messages,
-            { role: 'user', content }
+            { role: 'user', content } as import('./types.js').ChatMessage
           ];
-          
           try {
-            const response = await env.AI.run(modelConfig.id as string, {
+            const params = {
               messages,
+              model: config.model,
               stream: true,
-            });
-            
+            };
+            const response = await defaultAIProvider.run(config.model, params, env);
             this.messages.push(
-              { role: 'user', content },
-              { role: 'assistant', content: '' } // Will be updated with streaming content
+              { role: 'user', content } as import('./types.js').ChatMessage,
+              { role: 'assistant', content: '' } as import('./types.js').ChatMessage
             );
-            
             return response;
           } catch (error) {
-            console.error('Error calling AI model:', error);
+            console.error('Error calling AI provider:', error);
             throw error;
           }
         }
       };
     }
   };
-  
   return agent;
 }
 
