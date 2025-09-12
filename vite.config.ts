@@ -1,28 +1,18 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
 
 export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'public/index.html'),
-      },
+      input: 'src/index.ts',
       output: {
-        entryFileNames: 'js/[name]-[hash].js',
-        chunkFileNames: 'js/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]',
+        entryFileNames: 'index.js',
+        format: 'es',
       },
+      external: ['agents'],
     },
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src'),
-    },
-  },
-  // Use Cloudflare Worker API polyfills for the local environment
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+    target: 'es2022',
+    minify: false,
   },
 });

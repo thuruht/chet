@@ -19,7 +19,7 @@
     "publish": true
   },
   "dependencies": {
-    "@cloudflare/agents": "^0.0.16",
+    "agents": "latest",
     "@cloudflare/opaque-ts": "^0.7.5",
     "hono": "^4.5.0"
   },
