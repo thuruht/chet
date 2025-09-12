@@ -1,6 +1,6 @@
 # C.H.E.T. Wrangler Configuration
 name = "chet"
-main = "src/app.ts"
+main = "dist/index.js"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
@@ -34,6 +34,16 @@ upload_source_maps = true
 [build]
 command = "npm run build"
 watch_dir = ["src", "public"]
+
+# Durable Object binding for the ChetAgent
+[[durable_objects.bindings]]
+name = "ChetAgent"
+class_name = "ChetAgent"
+
+# Migration for the ChetAgent Durable Object
+[[migrations]]
+tag = "v1"
+new_classes = ["ChetAgent"]
 
 # Development settings
 [dev]

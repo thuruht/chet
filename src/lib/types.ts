@@ -1,7 +1,7 @@
 /**
  * Type definitions for the C.H.E.T. application.
  */
-import { Agent } from '@cloudflare/agents';
+import { Agent } from 'agents';
 import type { TypedEnv } from '@cloudflare/opaque-ts';
 
 /**

@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { getAgentByName } from 'agents';
 import { errorHandler, debugLogger } from './middleware/error-handler.js';
 import { modelsRouter } from './api/models.js';
-import { chatRouter } from './api/chat.js';
 import { promptsRouter } from './api/prompts.js';
 import { mcpServersRouter } from './api/mcp-servers.js';
 import { fileRouter } from './api/file.js';
 import type { Env } from './lib/types.js';
+import { ChetAgent } from './lib/chet-agent.js';
 
 // Create the main app
 const app = new Hono<{ Bindings: Env }>();
@@ -40,7 +41,15 @@ app.get('*', async (c) => {
 
 // Mount API routes
 app.route('/api/models', modelsRouter);
-app.route('/api/chat', chatRouter);
+app.post('/api/chat', async (c) => {
+  try {
+    const agent = getAgentByName<Env, ChetAgent>(c.env.ChetAgent, 'default-agent');
+    return await agent.fetch(c.req.raw);
+  } catch (error) {
+    console.error("Error fetching from agent:", error);
+    return c.json({ error: "Failed to fetch from agent" }, 500);
+  }
+});
 app.route('/api/prompts', promptsRouter);
 app.route('/api/mcp-servers', mcpServersRouter);
 app.route('/api', fileRouter);
