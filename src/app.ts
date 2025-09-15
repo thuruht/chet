@@ -25,20 +25,6 @@ if (process.env.NODE_ENV !== 'production') {
   debugLogger(app);
 }
 
-// Route static assets
-app.get('*', async (c) => {
-  const { pathname } = new URL(c.req.url);
-  
-  // Only handle static assets for non-API paths
-  if (pathname.startsWith('/api/')) {
-    // Finalize context for API paths to avoid context errors
-    return await c.notFound();
-  }
-  
-  // Handle static assets with the ASSETS binding
-  return c.env.ASSETS.fetch(c.req.raw);
-});
-
 // Mount API routes
 app.route('/api/models', modelsRouter);
 app.post('/api/chat', async (c) => {
@@ -53,6 +39,20 @@ app.post('/api/chat', async (c) => {
 app.route('/api/prompts', promptsRouter);
 app.route('/api/mcp-servers', mcpServersRouter);
 app.route('/api', fileRouter);
+
+// Route static assets
+app.get('*', async (c) => {
+  const { pathname } = new URL(c.req.url);
+
+  // Only handle static assets for non-API paths
+  if (pathname.startsWith('/api/')) {
+    // Finalize context for API paths to avoid context errors
+    return await c.notFound();
+  }
+
+  // Handle static assets with the ASSETS binding
+  return c.env.ASSETS.fetch(c.req.raw);
+});
 
 // Not found handler
 app.notFound((c) => {
