@@ -16,14 +16,11 @@ export function processChunk(sseBuffer, chunk) {
 
 // Helper to extract JSON objects from a line if possible
 export function tryParseJsonFromLine(line) {
-  const trimmed = line.trim();
-  if (!trimmed.startsWith('{')) return null;
-  const firstBrace = line.indexOf('{');
-  const lastBrace = line.lastIndexOf('}');
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
-  const maybeJson = line.slice(firstBrace, lastBrace + 1);
+  const jsonMatch = line.match(/{.*}/);
+  if (!jsonMatch) return null;
+
   try {
-    return JSON.parse(maybeJson);
+    return JSON.parse(jsonMatch[0]);
   } catch (e) {
     return null;
   }

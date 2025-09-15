@@ -42,11 +42,11 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTools: true,
     supportsJsonMode: true,
   },
-  "deepseek-coder-6.7b": {
-    id: "@hf/thebloke/deepseek-coder-6.7b-instruct-awq",
-    name: "DeepSeek Coder 6.7B",
+  "phi-2": {
+    id: "@cf/microsoft/phi-2",
+    name: "Phi-2",
     description: "Code generation and programming assistance",
-    contextWindow: 4096,
+    contextWindow: 2048,
     maxTokensDefault: 256,
     maxTokensMax: 1024,
     temperatureDefault: 0.6,
