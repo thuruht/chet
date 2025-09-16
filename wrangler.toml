@@ -19,9 +19,9 @@ binding = "CHET_KV"
 id = "07fb69cb761049c6ba59250c50135039"
 
 # Public route
-[routes]
-pattern = "chet.distorted.work/*"
-custom_domain = true
+routes = [
+  { pattern = "chet.distorted.work/*", custom_domain = true }
+]
 
 # Development settings
 [dev]
