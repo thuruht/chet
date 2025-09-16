@@ -1,6 +1,6 @@
 # C.H.E.T. Wrangler Configuration
 name = "chet"
-main = "dist/index.js"
+main = "src/index.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
@@ -9,15 +9,11 @@ compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 binding = "ASSETS"
 directory = "./public"
 
-# Enable observability
-[observability]
-enabled = true
-
 # AI binding for Workers AI
 [ai]
 binding = "AI"
 
-# KV namespace for prompts, MCP servers and other data
+# KV namespace for chat history
 [[kv_namespaces]]
 binding = "CHET_KV"
 id = "07fb69cb761049c6ba59250c50135039"
@@ -26,24 +22,6 @@ id = "07fb69cb761049c6ba59250c50135039"
 [routes]
 pattern = "chet.distorted.work/*"
 custom_domain = true
-
-# Source maps for better debugging
-upload_source_maps = true
-
-# Build settings for Vite
-[build]
-command = "npm run build"
-watch_dir = ["src", "public"]
-
-# Durable Object binding for the ChetAgent
-[[durable_objects.bindings]]
-name = "ChetAgent"
-class_name = "ChetAgent"
-
-# Migration for the ChetAgent Durable Object
-[[migrations]]
-tag = "v1"
-new_classes = ["ChetAgent"]
 
 # Development settings
 [dev]

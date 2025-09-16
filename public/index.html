@@ -1,239 +1,55 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>C.H.E.T. - Chat Helper for (almost) Every Task</title>
-    <link rel="stylesheet" href="styles.css">
-  </head>
-  <body class="theme-chet">
-    <header>
-      <h1>CHAET - C.H.E.T.</h1>
-      <p>Chat Helper for <small>(almost)</small> Every Task</p>
-    </header>
-
-    <div class="app-container">
-
-      <aside class="sidebar" aria-label="Sidebar options">
-
-        <h2 class="section-toggle" data-target="model-section">Model & Settings</h2>
-        <div id="model-section" class="sidebar-section">
-          <div class="model-selector">
-            <label for="model-select">Model:</label>
-            <select id="model-select">
-              <option value="">Loading models...</option>
-            </select>
-            <div id="model-info" class="model-info">
-              Select a model to see details
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C.H.E.T.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>C.H.E.T.</h1>
+                <p>Chat Helper for Every Task</p>
             </div>
-          </div>
-        </div>
 
-        <h2 class="section-toggle" data-target="parameters-section">Model Parameters</h2>
-        <div id="parameters-section" class="sidebar-section">
-          <div class="parameter-group">
-            <label for="max-tokens">Max Tokens: <span id="max-tokens-value">1024</span></label>
-            <input type="range" id="max-tokens" min="256" max="4096" value="1024" step="64">
-            <div class="parameter-info">
-              <strong>Maximum tokens to generate in the response.</strong><br>
-              Higher values allow longer responses but cost more. Each model has different limits.
+            <div class="sidebar-section">
+                <label for="model-select">Model</label>
+                <select id="model-select">
+                    <option value="@cf/meta/llama-3-8b-instruct">Llama 3 8B (Instruct)</option>
+                    <option value="@cf/mistral/mistral-7b-instruct-v0.1">Mistral 7B (Instruct)</option>
+                    <option value="@cf/google/gemma-7b-it">Gemma 7B (Instruct)</option>
+                    <option value="@cf/qwen/qwen1.5-7b-chat">Qwen 1.5 7B (Chat)</option>
+                </select>
             </div>
-          </div>
 
-          <div class="parameter-group">
-            <label for="temperature">Temperature: <span id="temperature-value">0.6</span></label>
-            <input type="range" id="temperature" min="0" max="5" value="0.6" step="0.1">
-            <div class="parameter-info">
-              <strong>Controls creativity and randomness.</strong><br>
-              0 = Deterministic, focused responses<br>
-              1 = Balanced creativity<br>
-              2+ = More creative, less predictable
+            <div class="sidebar-section">
+                <label for="session-name">New Session</label>
+                <input type="text" id="session-name" placeholder="Name your new session...">
+                <button id="new-session-btn">Create Session</button>
             </div>
-          </div>
-
-          <div class="parameter-group">
-            <label for="top-p">Top P: <span id="top-p-value">0.9</span></label>
-            <input type="range" id="top-p" min="0" max="2" value="0.9" step="0.05">
-            <div class="parameter-info">
-              <strong>Nucleus sampling threshold.</strong><br>
-              Controls diversity by limiting token choices to cumulative probability mass. Lower = more focused, higher = more diverse.
+            <div class="session-history">
+                <h2>Sessions</h2>
+                <ul id="session-list"></ul>
             </div>
-          </div>
-
-          <div class="parameter-group">
-            <label for="top-k">Top K: <span id="top-k-value">40</span></label>
-            <input type="range" id="top-k" min="1" max="50" value="40" step="1">
-            <div class="parameter-info">
-              <strong>Vocabulary filtering.</strong><br>
-              Limits AI to choose from top K most probable words. Lower = more focused, higher = more variety.
+        </aside>
+        <main class="chat-container">
+            <div id="chat-messages">
+                <div class="message welcome-message">
+                    <h2>Welcome to C.H.E.T.</h2>
+                    <p>Select a model, then create or choose a session to begin.</p>
+                </div>
             </div>
-          </div>
-
-          <div class="parameter-group">
-            <label for="repetition-penalty">Repetition Penalty: <span id="repetition-penalty-value">1.1</span></label>
-            <input type="range" id="repetition-penalty" min="0" max="2" value="1.1" step="0.1">
-            <div class="parameter-info">
-              <strong>Prevents repetitive text.</strong><br>
-              1.0 = No penalty, >1.0 = Discourage repetition, <1.0 = Allow repetition.
-            </div>
-          </div>
-
-          <div class="parameter-group">
-            <label for="frequency-penalty">Frequency Penalty: <span id="frequency-penalty-value">0.0</span></label>
-            <input type="range" id="frequency-penalty" min="-2" max="2" value="0.0" step="0.1">
-            <div class="parameter-info">
-              <strong>Reduces likelihood of repeating exact phrases.</strong><br>
-              Positive values discourage repetition, negative values encourage it.
-            </div>
-          </div>
-
-          <div class="parameter-group">
-            <label for="presence-penalty">Presence Penalty: <span id="presence-penalty-value">0.0</span></label>
-            <input type="range" id="presence-penalty" min="-2" max="2" value="0.0" step="0.1">
-            <div class="parameter-info">
-              <strong>Encourages introducing new topics.</strong><br>
-              Positive values promote new concepts, negative values focus on current topics.
-            </div>
-          </div>
-
-          <div class="parameter-group">
-            <label for="seed">Seed (Optional): </label>
-            <input type="number" id="seed" min="1" max="9999999999" placeholder="Random">
-            <div class="parameter-info">
-              <strong>Reproducibility control.</strong><br>
-              Set a number for consistent outputs with same inputs. Leave empty for random results.
-            </div>
-          </div>
-        </div>
-
-        <!-- Saved Prompts Section -->
-        <h2 class="section-toggle" data-target="prompts-section">Saved Prompts</h2>
-        <div id="prompts-section" class="sidebar-section">
-          <div class="parameter-group">
-            <button id="add-prompt-btn" class="action-btn">+ Add Prompt</button>
-            <div id="prompts-list" class="items-list">
-              <!-- Prompts will be loaded here -->
-            </div>
-          </div>
-        </div>
-
-        <!-- MCP Servers Section -->
-        <h2 class="section-toggle" data-target="mcp-section">MCP Servers</h2>
-        <div id="mcp-section" class="sidebar-section">
-          <div class="parameter-group">
-            <button id="add-mcp-btn" class="action-btn">+ Add Server</button>
-            <div id="mcp-list" class="items-list">
-              <!-- MCP servers will be loaded here -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Developer / Extras -->
-        <h2 class="section-toggle" data-target="dev-section">Dev Tools</h2>
-        <div id="dev-section" class="sidebar-section">
-          <div class="parameter-group">
-            <label class="persona-label">
-              <input type="checkbox" id="persona-enabled"> Enable playful persona
-            </label>
-            <small class="persona-note">When enabled, the UI will present a playful greeting (client-side only).</small>
-          </div>
-
-          <div class="parameter-group">
-            <button id="open-inspector-btn" class="action-btn">Open Request Inspector</button>
-            <div id="request-inspector" class="request-inspector">
-              <div class="inspector-title">Last Request Payload</div>
-              <pre id="inspector-request" class="inspector-pre"></pre>
-              <div class="inspector-title">Last Response Metadata</div>
-              <pre id="inspector-response" class="inspector-pre"></pre>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <div class="chat-container">
-        <div class="current-model" id="current-model">
-          Model: Loading...
-          <div id="model-alert" class="model-alert"></div>
-        </div>
-        
-        <div id="chat-messages" class="chat-messages">
-          <div class="message assistant-message">
-            <p>
-              Hello! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!
-            </p>
-          </div>
-        </div>
-
-        <div class="typing-indicator" id="typing-indicator">
-          AI is thinking...
-        </div>
-
-        <div class="message-input">
-          <textarea
-            id="user-input"
-            placeholder="Type your message here..."
-            rows="1"
-            autofocus
-          ></textarea>
-          <button id="send-button">Send</button>
-        </div>
-      </div>
+            <form id="chat-form">
+                <textarea id="message-input" placeholder="Type your message here..." required rows="1"></textarea>
+                <button type="submit" id="send-button">Send</button>
+            </form>
+        </main>
     </div>
-
-    <footer>
-     template by cloudflare, modded by jojo crine aka thuruht
-    </footer>
-
-    <!-- Modals -->
-    <!-- Prompt Modal -->
-    <div id="prompt-modal" class="modal">
-      <div class="modal-content">
-        <h3 id="prompt-modal-title">Add Prompt</h3>
-        <input type="text" id="prompt-name" placeholder="Prompt name">
-        <textarea id="prompt-content" placeholder="Enter your prompt here..."></textarea>
-        <input type="text" id="prompt-tags" placeholder="Tags (comma separated)">
-        <div class="modal-actions">
-          <button class="modal-btn secondary" id="cancel-prompt">Cancel</button>
-          <button class="modal-btn primary" id="save-prompt">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MCP Server Modal -->
-    <div id="mcp-modal" class="modal">
-      <div class="modal-content">
-        <h3 id="mcp-modal-title">Add MCP Server</h3>
-        <input type="text" id="mcp-name" placeholder="Server name">
-        <textarea id="mcp-command" placeholder="Command (JSON array format, e.g., ['node', 'server.js'])"></textarea>
-        <input type="text" id="mcp-cwd" placeholder="Working directory (optional)">
-        <textarea id="mcp-env" placeholder="Environment variables (JSON format, optional)"></textarea>
-        <textarea id="mcp-args" placeholder="Arguments (JSON format, optional)"></textarea>
-        <input type="text" id="mcp-description" placeholder="Description (optional)">
-        <label>
-          <input type="checkbox" id="mcp-enabled" checked> Enabled
-        </label>
-        <div class="modal-actions">
-          <button class="modal-btn secondary" id="cancel-mcp">Cancel</button>
-          <button class="modal-btn primary" id="save-mcp">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Server Meta Modal -->
-    <div id="server-meta-modal" class="modal">
-      <div class="modal-content">
-        <h3 id="server-meta-title">Server Response Metadata</h3>
-        <pre id="server-meta-json" class="server-meta-body"></pre>
-        <div class="server-meta-actions">
-          <button id="server-meta-copy" class="modal-btn">Copy</button>
-          <button id="server-meta-close" class="modal-btn secondary">Close</button>
-        </div>
-      </div>
-    </div>
-
-  <!-- Shared UI utilities (to provide showToast, etc.) -->
-  <script src="js/ui-utils.js"></script>
-  <!-- Chat app script -->
-  <script src="js/chat-manager.js"></script>
-  </body>
+    <script src="script.js"></script>
+</body>
 </html>
