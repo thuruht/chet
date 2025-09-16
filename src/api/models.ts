@@ -41,12 +41,12 @@ modelsRouter.get('/examples', (c) => {
         }
       }
     },
-    "deepseek-coder-6.7b": {
+    "phi-2": {
       prompts: [
-        "Complete this function: def fibonacci(n):",
-        "What's wrong with this loop? while True: print('hello')",
-        "Convert this Python code to JavaScript: [x**2 for x in range(10)]",
-        "Explain what this regex does: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        "Write a function in python that takes a number as input and returns its factorial.",
+        "Translate the following python code to C++: for i in range(10): print(i)",
+        "What is the time complexity of a quick sort algorithm?",
+        "Explain the difference between a list and a tuple in Python."
       ]
     },
     "hermes-2-pro-7b": {
