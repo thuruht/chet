@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { MODELS } from '../lib/config.js';
+import { MODELS } from '../lib/config';
 import type { Env } from '../lib/types.js';
 
 // Create a router for models endpoints
