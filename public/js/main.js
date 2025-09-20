@@ -88,8 +88,8 @@ class CHETApplication {
     try {
       const response = await fetch('/api/prompts');
       if (response.ok) {
-        const prompts = await response.json();
-        this.displayPrompts(prompts);
+        const data = await response.json();
+        this.displayPrompts(data.prompts || []);
       }
     } catch (error) {
       console.error('Failed to load prompts:', error);
@@ -122,12 +122,12 @@ class CHETApplication {
       const editBtn = document.createElement('button');
       editBtn.title = 'Edit';
       editBtn.textContent = '✏️';
-      editBtn.addEventListener('click', () => this.editPrompt(prompt.id));
+      editBtn.addEventListener('click', () => this.editPrompt(prompt));
 
       const delBtn = document.createElement('button');
       delBtn.title = 'Delete';
       delBtn.textContent = '🗑️';
-      delBtn.addEventListener('click', () => this.deletePrompt(prompt.id));
+      delBtn.addEventListener('click', () => this.deletePrompt(prompt.id, prompt.name));
 
       actions.appendChild(useBtn);
       actions.appendChild(editBtn);
@@ -178,6 +178,32 @@ class CHETApplication {
     }
   }
 
+  editPrompt(prompt) {
+    this.showPromptModal(prompt);
+  }
+
+  async deletePrompt(promptId, promptName) {
+    if (!confirm(`Are you sure you want to delete the prompt "${promptName}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/prompts?id=${promptId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        showToast('Prompt deleted successfully!', 'success');
+        await this.loadPrompts();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete prompt');
+      }
+    } catch (error) {
+      ErrorHandler.handle(error, 'Delete Prompt');
+    }
+  }
+
   async initializeMCPManagement() {
     const addMCPBtn = document.getElementById('add-mcp-btn');
     const mcpList = document.getElementById('mcp-list');
@@ -195,8 +221,8 @@ class CHETApplication {
     try {
       const response = await fetch('/api/mcp-servers');
       if (response.ok) {
-        const servers = await response.json();
-        this.displayMCPServers(servers);
+        const data = await response.json();
+        this.displayMCPServers(data.servers || []);
       }
     } catch (error) {
       console.error('Failed to load MCP servers:', error);
@@ -229,12 +255,12 @@ class CHETApplication {
       const editBtn = document.createElement('button');
       editBtn.title = 'Edit';
       editBtn.textContent = '✏️';
-      editBtn.addEventListener('click', () => this.editMCPServer(server.id));
+      editBtn.addEventListener('click', () => this.editMCPServer(server));
 
       const delBtn = document.createElement('button');
       delBtn.title = 'Delete';
       delBtn.textContent = '🗑️';
-      delBtn.addEventListener('click', () => this.deleteMCPServer(server.id));
+      delBtn.addEventListener('click', () => this.deleteMCPServer(server.id, server.name));
 
       actions.appendChild(toggleBtn);
       actions.appendChild(editBtn);
@@ -383,14 +409,192 @@ class CHETApplication {
     modal.focus();
   }
 
-  showPromptModal() {
-    // Implementation for prompt modal would go here
-    showToast('Prompt management modal - coming soon!', 'info', 2000);
+  showPromptModal(prompt = null) {
+    const modal = document.getElementById('prompt-modal');
+    if (!modal) return;
+
+    const title = document.getElementById('prompt-modal-title');
+    const nameInput = document.getElementById('prompt-name');
+    const contentInput = document.getElementById('prompt-content');
+    const tagsInput = document.getElementById('prompt-tags');
+    const saveBtn = document.getElementById('save-prompt');
+    const cancelBtn = document.getElementById('cancel-prompt');
+
+    // Reset form
+    nameInput.value = '';
+    contentInput.value = '';
+    tagsInput.value = '';
+
+    if (prompt) {
+      // Edit mode
+      title.textContent = 'Edit Prompt';
+      nameInput.value = prompt.name;
+      contentInput.value = prompt.content;
+      tagsInput.value = prompt.tags.join(', ');
+      saveBtn.dataset.promptId = prompt.id;
+    } else {
+      // Add mode
+      title.textContent = 'Add Prompt';
+      delete saveBtn.dataset.promptId;
+    }
+
+    modal.style.display = 'flex';
+
+    // Attach event listeners
+    cancelBtn.onclick = () => modal.style.display = 'none';
+    saveBtn.onclick = () => this.savePrompt();
+
+    // Close modal if clicking outside of it
+    window.onclick = (event) => {
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    }
   }
 
-  showMCPModal() {
-    // Implementation for MCP modal would go here
-    showToast('MCP server management modal - coming soon!', 'info', 2000);
+  async savePrompt() {
+    const name = document.getElementById('prompt-name').value;
+    const content = document.getElementById('prompt-content').value;
+    const tags = document.getElementById('prompt-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+    const saveBtn = document.getElementById('save-prompt');
+    const promptId = saveBtn.dataset.promptId;
+
+    if (!name || !content) {
+      showToast('Name and content are required.', 'error');
+      return;
+    }
+
+    const method = promptId ? 'PUT' : 'POST';
+    const body = { name, content, tags };
+    if (promptId) {
+      body.id = promptId;
+    }
+
+    try {
+      const response = await fetch('/api/prompts', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        showToast(`Prompt ${promptId ? 'updated' : 'saved'} successfully!`, 'success');
+        document.getElementById('prompt-modal').style.display = 'none';
+        await this.loadPrompts();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save prompt');
+      }
+    } catch (error) {
+      ErrorHandler.handle(error, 'Save Prompt');
+    }
+  }
+
+  showMCPModal(server = null) {
+    const modal = document.getElementById('mcp-modal');
+    if (!modal) return;
+
+    const title = document.getElementById('mcp-modal-title');
+    const nameInput = document.getElementById('mcp-name');
+    const urlInput = document.getElementById('mcp-url');
+    const apiKeyInput = document.getElementById('mcp-api-key');
+    const saveBtn = document.getElementById('save-mcp');
+    const cancelBtn = document.getElementById('cancel-mcp');
+
+    // Reset form
+    nameInput.value = '';
+    urlInput.value = '';
+    apiKeyInput.value = '';
+
+    if (server) {
+      // Edit mode
+      title.textContent = 'Edit MCP Server';
+      nameInput.value = server.name;
+      urlInput.value = server.url;
+      apiKeyInput.value = server.apiKey || '';
+      saveBtn.dataset.serverId = server.id;
+    } else {
+      // Add mode
+      title.textContent = 'Add MCP Server';
+      delete saveBtn.dataset.serverId;
+    }
+
+    modal.style.display = 'flex';
+
+    // Attach event listeners
+    cancelBtn.onclick = () => modal.style.display = 'none';
+    saveBtn.onclick = () => this.saveMCPServer();
+
+    // Close modal if clicking outside of it
+    window.onclick = (event) => {
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    };
+  }
+
+  async saveMCPServer() {
+    const name = document.getElementById('mcp-name').value;
+    const url = document.getElementById('mcp-url').value;
+    const apiKey = document.getElementById('mcp-api-key').value;
+    const saveBtn = document.getElementById('save-mcp');
+    const serverId = saveBtn.dataset.serverId;
+
+    if (!name || !url) {
+      showToast('Name and URL are required.', 'error');
+      return;
+    }
+
+    const method = serverId ? 'PUT' : 'POST';
+    const body = { name, url, apiKey };
+    if (serverId) {
+      body.id = serverId;
+    }
+
+    try {
+      const response = await fetch('/api/mcp-servers', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        showToast(`Server ${serverId ? 'updated' : 'saved'} successfully!`, 'success');
+        document.getElementById('mcp-modal').style.display = 'none';
+        await this.loadMCPServers();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save server');
+      }
+    } catch (error) {
+      ErrorHandler.handle(error, 'Save MCP Server');
+    }
+  }
+
+  editMCPServer(server) {
+    this.showMCPModal(server);
+  }
+
+  async deleteMCPServer(serverId, serverName) {
+    if (!confirm(`Are you sure you want to delete the server "${serverName}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/mcp-servers?id=${serverId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        showToast('Server deleted successfully!', 'success');
+        await this.loadMCPServers();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete server');
+      }
+    } catch (error) {
+      ErrorHandler.handle(error, 'Delete MCP Server');
+    }
   }
 
   refreshApplicationState() {
