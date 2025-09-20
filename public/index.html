@@ -204,14 +204,8 @@
       <div class="modal-content">
         <h3 id="mcp-modal-title">Add MCP Server</h3>
         <input type="text" id="mcp-name" placeholder="Server name">
-        <textarea id="mcp-command" placeholder="Command (JSON array format, e.g., ['node', 'server.js'])"></textarea>
-        <input type="text" id="mcp-cwd" placeholder="Working directory (optional)">
-        <textarea id="mcp-env" placeholder="Environment variables (JSON format, optional)"></textarea>
-        <textarea id="mcp-args" placeholder="Arguments (JSON format, optional)"></textarea>
-        <input type="text" id="mcp-description" placeholder="Description (optional)">
-        <label>
-          <input type="checkbox" id="mcp-enabled" checked> Enabled
-        </label>
+        <input type="text" id="mcp-url" placeholder="Server URL">
+        <input type="password" id="mcp-api-key" placeholder="API Key (optional)">
         <div class="modal-actions">
           <button class="modal-btn secondary" id="cancel-mcp">Cancel</button>
           <button class="modal-btn primary" id="save-mcp">Save</button>
