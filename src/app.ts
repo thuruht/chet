@@ -30,7 +30,7 @@ app.route('/api/models', modelsRouter);
 app.post('/api/chat', async (c) => {
   try {
     const agent = getAgentByName<Env, ChetAgent>(c.env.ChetAgent, 'default-agent');
-    return await agent.onRequest(c.req.raw);
+    return agent.fetch(c.req.raw);
   } catch (error) {
     console.error("Error fetching from agent:", error);
     return c.json({ error: "Failed to fetch from agent" }, 500);
