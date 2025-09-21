@@ -121,6 +121,13 @@ export interface FileSaveRequest {
 }
 
 /**
+ * State for a ChetAgent instance
+ */
+export interface ChetAgentState {
+  messages: ChatMessage[];
+}
+
+/**
  * Agent configuration interface
  */
 export interface AgentConfig {

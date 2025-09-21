@@ -12,13 +12,26 @@ class ChatManager {
     this.sendButton = document.getElementById('send-button');
     this.typingIndicator = document.getElementById('typing-indicator');
     this.conversationHistory = [];
-    
+    this.sessionId = null;
+
     this.init();
   }
 
-  init() {
+  async init() {
+    this.loadSessionId();
     this.setupEventListeners();
-    this.displayWelcomeMessage();
+    await this.fetchHistory();
+    if (this.conversationHistory.length === 0) {
+      this.displayWelcomeMessage();
+    }
+  }
+
+  loadSessionId() {
+    this.sessionId = sessionStorage.getItem('chet-session-id');
+    if (!this.sessionId) {
+      this.sessionId = crypto.randomUUID();
+      sessionStorage.setItem('chet-session-id', this.sessionId);
+    }
   }
 
   setupEventListeners() {
@@ -47,6 +60,42 @@ class ChatManager {
     const clearButton = document.getElementById('clear-chat');
     if (clearButton) {
       clearButton.addEventListener('click', () => this.clearChat());
+    }
+  }
+
+  async fetchHistory() {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'GET',
+        headers: {
+          'X-Session-Id': this.sessionId,
+        },
+      });
+
+      if (response.status === 404) {
+        this.conversationHistory = [];
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const history = await response.json();
+      this.conversationHistory = history.messages || [];
+
+      if (this.chatMessages) {
+        while (this.chatMessages.firstChild) {
+          this.chatMessages.removeChild(this.chatMessages.firstChild);
+        }
+      }
+
+      this.conversationHistory.forEach((message) => {
+        this.displayMessage(message, false);
+      });
+    } catch (error) {
+      console.error('Failed to fetch history:', error);
+      this.conversationHistory = [];
     }
   }
 
@@ -90,9 +139,8 @@ What would you like to work on today?`
     this.userInput.style.height = 'auto';
     this.setSendingState(true);
 
-    // Add user message to conversation
+    // Display user message immediately
     const userMessage = { role: 'user', content: message };
-    this.conversationHistory.push(userMessage);
     this.displayMessage(userMessage, false);
 
     // Show typing indicator
@@ -114,15 +162,16 @@ What would you like to work on today?`
     const parameters = this.modelManager.getCurrentParameters();
     
     const requestBody = {
-      messages: this.conversationHistory,
+      content: message,
       model: model.key,
-      ...parameters
+      ...parameters,
     };
 
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Session-Id': this.sessionId,
       },
       body: JSON.stringify(requestBody),
     });
@@ -176,10 +225,7 @@ What would you like to work on today?`
       reader.releaseLock();
     }
 
-    // Update conversation history
-    assistantMessage.content = responseText;
-    this.conversationHistory.push(assistantMessage);
-
+    // The server now maintains the history
     return responseText;
   }
 
@@ -278,15 +324,35 @@ What would you like to work on today?`
     }
   }
 
-  clearChat() {
-    this.conversationHistory = [];
-    if (this.chatMessages) {
-      while (this.chatMessages.firstChild) this.chatMessages.removeChild(this.chatMessages.firstChild);
-    }
-    this.displayWelcomeMessage();
-    
-    if (window.showToast) {
-      window.showToast('Chat cleared', 'info', 1000);
+  async clearChat() {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'DELETE',
+        headers: {
+          'X-Session-Id': this.sessionId,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      this.conversationHistory = [];
+      if (this.chatMessages) {
+        while (this.chatMessages.firstChild) {
+          this.chatMessages.removeChild(this.chatMessages.firstChild);
+        }
+      }
+      this.displayWelcomeMessage();
+
+      if (window.showToast) {
+        window.showToast('Chat cleared', 'info', 1000);
+      }
+    } catch (error) {
+      console.error('Failed to clear chat:', error);
+      if (window.showToast) {
+        window.showToast('Failed to clear chat on server', 'error');
+      }
     }
   }
 
@@ -296,6 +362,7 @@ What would you like to work on today?`
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Session-Id': this.sessionId,
         },
         body: JSON.stringify({
           filename: `chat-response-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`,
