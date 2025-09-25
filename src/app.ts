@@ -27,15 +27,18 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Mount API routes
 app.route('/api/models', modelsRouter);
-app.post('/api/chat', async (c) => {
+app.all('/api/chat', async (c) => {
   try {
+    const sessionId = c.req.header('x-session-id');
+    if (!sessionId) {
+      return c.json({ error: 'Session ID is required' }, 400);
+    }
 
-    const agent = getAgentByName<Env, ChetAgent>(c.env.ChetAgent, 'default-agent');
+    const agent = getAgentByName<Env, ChetAgent>(c.env.ChetAgent, sessionId);
     return agent.fetch(c.req.raw);
-
   } catch (error) {
-    console.error("Error fetching from agent:", error);
-    return c.json({ error: "Failed to fetch from agent" }, 500);
+    console.error('Error fetching from agent:', error);
+    return c.json({ error: 'Failed to fetch from agent' }, 500);
   }
 });
 app.route('/api/prompts', promptsRouter);

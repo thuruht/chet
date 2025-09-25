@@ -157,11 +157,7 @@
         </div>
         
         <div id="chat-messages" class="chat-messages">
-          <div class="message assistant-message">
-            <p>
-              Hello! I'm C.H.E.T. (Chat Helper for (almost) Every Task), powered by Cloudflare Workers AI. Choose a model from the sidebar and let's tackle any task together!
-            </p>
-          </div>
+          <!-- Messages will be dynamically inserted here -->
         </div>
 
         <div class="typing-indicator" id="typing-indicator">
@@ -229,12 +225,12 @@
   <script src="js/ui-utils.js"></script>
 
   <!-- Core Application Modules -->
-  <script src="js/stream-parser.js"></script>
-  <script src="js/theme-manager.js"></script>
-  <script src="js/model-manager.js"></script>
-  <script src="js/chat-manager.js"></script>
+  <script type="module" src="js/stream-parser.js"></script>
+  <script type="module" src="js/theme-manager.js"></script>
+  <script type="module" src="js/model-manager.js"></script>
+  <script type="module" src="js/chat-manager.js"></script>
 
   <!-- Main Application Entry Point -->
-  <script src="js/main.js"></script>
+  <script type="module" src="js/main.js"></script>
   </body>
 </html>
