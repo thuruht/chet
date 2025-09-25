@@ -17,9 +17,9 @@ export class ChetAgent extends Agent<Env, ChetAgentState> {
   async onRequest(request: Request): Promise<Response> {
     switch (request.method) {
       case 'GET': {
-        if (!this.state.messages || this.state.messages.length === 0) {
+        if (!this.state.messages || this.state.messages.length <= 1) {
           return new Response(JSON.stringify({ messages: [] }), {
-            status: 404,
+            status: 200,
             headers: { 'Content-Type': 'application/json' },
           });
         }
@@ -59,55 +59,48 @@ export class ChetAgent extends Agent<Env, ChetAgentState> {
             ...params,
           };
 
-          const response = await this.env.AI.run(modelConfig.id as any, aiParams, { returnRawResponse: true });
+          const aiResponse = await this.env.AI.run(modelConfig.id as any, aiParams);
 
-          const originalBody = response?.body;
-          if (!originalBody) {
-            return response;
-          }
-
-          const [tee1, tee2] = originalBody.tee();
-          let fullResponse = '';
-          const reader = tee1.getReader();
+          const { readable, writable } = new TransformStream();
+          const writer = writable.getWriter();
+          const encoder = new TextEncoder();
           const decoder = new TextDecoder();
+          let fullResponse = '';
 
-          const streamReadPromise = (async () => {
-            let buffer = '';
+          const pump = async () => {
+            const reader = aiResponse.getReader();
             while (true) {
               const { done, value } = await reader.read();
-              if (done) break;
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() || '';
-              for (const line of lines) {
-                if (line.trim() === '') continue;
-                try {
-                  const chunk = JSON.parse(line);
-                  if (chunk.response) {
-                    fullResponse += chunk.response;
-                  }
-                } catch (e) {
-                  console.error('Failed to parse stream chunk:', e);
-                }
+              if (done) {
+                writer.close();
+                break;
               }
-            }
-            if (buffer.trim() !== '') {
-              try {
-                const chunk = JSON.parse(buffer);
-                if (chunk.response) {
-                  fullResponse += chunk.response;
+              const chunk = decoder.decode(value, { stream: true });
+              for (const line of chunk.split('\n')) {
+                if (line.trim().startsWith('data: ')) {
+                  const json = line.trim().substring(6);
+                  try {
+                    const parsed = JSON.parse(json);
+                    if (parsed.response) {
+                      fullResponse += parsed.response;
+                      writer.write(encoder.encode(JSON.stringify({ response: parsed.response }) + '\n'));
+                    }
+                  } catch (e) {
+                    // Ignore parsing errors
+                  }
                 }
-              } catch (e) {
-                console.error('Failed to parse final stream chunk:', e);
               }
             }
             const assistantMessage: ChatMessage = { role: 'assistant', content: fullResponse };
             this.setState({ messages: [...messages, assistantMessage] });
-          })();
+          };
 
-          const headers = new Headers(response.headers);
-          headers.set('Content-Type', 'application/x-ndjson');
-          return new Response(tee2, { status: response.status, headers });
+          pump();
+
+          return new Response(readable, {
+            headers: { 'Content-Type': 'application/x-ndjson' },
+          });
+
         } catch (error) {
           console.error('Error in ChetAgent POST:', error);
           const detail = error && (error as any).message ? (error as any).message : String(error);
