@@ -34,7 +34,7 @@ app.all('/api/chat', async (c) => {
       return c.json({ error: 'Session ID is required' }, 400);
     }
 
-    const agent = getAgentByName<Env, ChetAgent>(c.env.ChetAgent, sessionId);
+    const agent = await getAgentByName<Env, ChetAgent>(c.env.ChetAgent, sessionId);
     return agent.fetch(c.req.raw);
   } catch (error) {
     console.error('Error fetching from agent:', error);
