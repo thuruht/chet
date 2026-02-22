@@ -5,4 +5,4 @@
 import app from './app.js';
 
 export default app;
-export { ChetAgent } from './lib/chet-agent.js';
+export { ChetAgentV2 } from './lib/chet-agent.js';

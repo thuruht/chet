@@ -8,7 +8,7 @@ const SYSTEM_PROMPT =
 /**
  * ChetAgent is an Agent that handles chat interactions.
  */
-export class ChetAgent extends Agent<Env, ChetAgentState> {
+export class ChetAgentV2 extends Agent<Env, ChetAgentState> {
   // Set the initial state for new agent instances
   initialState: ChetAgentState = {
     messages: [{ role: 'system', content: SYSTEM_PROMPT }],

@@ -38,12 +38,16 @@ watch_dir = ["src", "public"]
 # Durable Object binding for the ChetAgent
 [[durable_objects.bindings]]
 name = "ChetAgent"
-class_name = "ChetAgent"
+class_name = "ChetAgentV2"
 
 # Migration for the ChetAgent Durable Object
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["ChetAgent"]
+new_classes = ["ChetAgent"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ChetAgentV2"]
 
 # Development settings
 [dev]
