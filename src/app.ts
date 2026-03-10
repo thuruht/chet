@@ -8,7 +8,7 @@ import { promptsRouter } from './api/prompts.js';
 import { mcpServersRouter } from './api/mcp-servers.js';
 import { fileRouter } from './api/file.js';
 import type { Env } from './lib/types.js';
-import { ChetAgent } from './lib/chet-agent.js';
+import { ChetAgentV2 } from './lib/chet-agent.js';
 
 // Create the main app
 const app = new Hono<{ Bindings: Env }>();
@@ -34,7 +34,7 @@ app.all('/api/chat', async (c) => {
       return c.json({ error: 'Session ID is required' }, 400);
     }
 
-    const agent = getAgentByName<Env, ChetAgent>(c.env.ChetAgent, sessionId);
+    const agent = await getAgentByName<Env, ChetAgentV2>(c.env.ChetAgent, sessionId);
     return agent.fetch(c.req.raw);
   } catch (error) {
     console.error('Error fetching from agent:', error);

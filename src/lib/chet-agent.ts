@@ -8,7 +8,7 @@ const SYSTEM_PROMPT =
 /**
  * ChetAgent is an Agent that handles chat interactions.
  */
-export class ChetAgent extends Agent<Env, ChetAgentState> {
+export class ChetAgentV2 extends Agent<Env, ChetAgentState> {
   // Set the initial state for new agent instances
   initialState: ChetAgentState = {
     messages: [{ role: 'system', content: SYSTEM_PROMPT }],
@@ -69,14 +69,18 @@ export class ChetAgent extends Agent<Env, ChetAgentState> {
 
           const pump = async () => {
             const reader = aiResponse.getReader();
+            let buffer = '';
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
                 writer.close();
                 break;
               }
-              const chunk = decoder.decode(value, { stream: true });
-              for (const line of chunk.split('\n')) {
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
                 if (line.trim().startsWith('data: ')) {
                   const json = line.trim().substring(6);
                   try {

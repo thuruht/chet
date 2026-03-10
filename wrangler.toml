@@ -4,6 +4,9 @@ main = "dist/index.js"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
+# Source maps for better debugging
+upload_source_maps = true
+
 # Static assets for the frontend
 [assets]
 binding = "ASSETS"
@@ -23,12 +26,9 @@ binding = "CHET_KV"
 id = "07fb69cb761049c6ba59250c50135039"
 
 # Public route
-[routes]
-pattern = "chet.distorted.work/*"
+[[routes]]
+pattern = "chet.distorted.work"
 custom_domain = true
-
-# Source maps for better debugging
-upload_source_maps = true
 
 # Build settings for Vite
 [build]
@@ -38,12 +38,16 @@ watch_dir = ["src", "public"]
 # Durable Object binding for the ChetAgent
 [[durable_objects.bindings]]
 name = "ChetAgent"
-class_name = "ChetAgent"
+class_name = "ChetAgentV2"
 
 # Migration for the ChetAgent Durable Object
 [[migrations]]
 tag = "v1"
 new_classes = ["ChetAgent"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ChetAgentV2"]
 
 # Development settings
 [dev]
