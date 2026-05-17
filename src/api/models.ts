@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { MODELS } from '../lib/config';
+import { MODELS } from '../lib/config.js';
 import type { Env } from '../lib/types.js';
 
 // Create a router for models endpoints
@@ -11,7 +11,7 @@ const modelsRouter = new Hono<{ Bindings: Env }>();
 modelsRouter.get('/', (c) => {
   const modelsData = Object.entries(MODELS).map(([key, config]) => ({
     key,
-    ...config,
+    ...(config as any),
   }));
   
   return c.json(modelsData);

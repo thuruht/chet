@@ -1,4 +1,4 @@
-import { ModelConfig } from './types';
+import { ModelConfig } from './types.js';
 
 // Available models configuration
 export const MODELS: Record<string, ModelConfig> = {

@@ -65,9 +65,10 @@ mcpServersRouter.post('/', async (c) => {
 /**
  * PUT /api/mcp-servers - Update an existing MCP server
  */
-mcpServersRouter.put('/', async (c) => {
+mcpServersRouter.put('/:id', async (c) => {
   try {
-    const { id, name, url, apiKey } = await c.req.json() as { id: string; name?: string; url?: string; apiKey?: string };
+    const id = c.req.param('id');
+    const { name, url, apiKey } = await c.req.json() as { name?: string; url?: string; apiKey?: string };
     
     if (!id) {
       return c.json({ error: "Server ID is required" }, 400);
@@ -107,9 +108,9 @@ mcpServersRouter.put('/', async (c) => {
 /**
  * DELETE /api/mcp-servers - Delete a MCP server
  */
-mcpServersRouter.delete('/', async (c) => {
+mcpServersRouter.delete('/:id', async (c) => {
   try {
-    const id = c.req.query('id');
+    const id = c.req.param('id');
     
     if (!id) {
       return c.json({ error: "Server ID is required" }, 400);

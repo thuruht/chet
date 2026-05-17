@@ -466,12 +466,10 @@ class CHETApplication {
 
     const method = promptId ? 'PUT' : 'POST';
     const body = { name, content, tags };
-    if (promptId) {
-      body.id = promptId;
-    }
+    const fetchUrl = promptId ? `/api/prompts/${promptId}` : '/api/prompts';
 
     try {
-      const response = await fetch('/api/prompts', {
+      const response = await fetch(fetchUrl, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -547,12 +545,10 @@ class CHETApplication {
 
     const method = serverId ? 'PUT' : 'POST';
     const body = { name, url, apiKey };
-    if (serverId) {
-      body.id = serverId;
-    }
+    const fetchUrl = serverId ? `/api/mcp-servers/${serverId}` : '/api/mcp-servers';
 
     try {
-      const response = await fetch('/api/mcp-servers', {
+      const response = await fetch(fetchUrl, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -581,7 +577,7 @@ class CHETApplication {
     }
 
     try {
-      const response = await fetch(`/api/mcp-servers?id=${serverId}`, {
+      const response = await fetch(`/api/mcp-servers/${serverId}`, {
         method: 'DELETE',
       });
 
