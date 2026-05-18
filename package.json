@@ -19,9 +19,14 @@
     "publish": true
   },
   "dependencies": {
-    "agents": "latest",
+    "@cloudflare/ai-chat": "^0.7.0",
+    "@cloudflare/codemode": "^0.3.6",
     "@cloudflare/opaque-ts": "^0.7.5",
-    "hono": "^4.5.0"
+    "agents": "^0.12.4",
+    "ai": "^6.0.184",
+    "hono": "^4.5.0",
+    "workers-ai-provider": "^3.1.14",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.8.44",

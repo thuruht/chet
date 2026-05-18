@@ -11,7 +11,7 @@ export default defineConfig({
         format: 'es',
       },
       preserveEntrySignatures: 'strict',
-      external: ['agents'],
+      external: ['agents', 'cloudflare:workers'],
     },
     target: 'es2022',
     minify: false,

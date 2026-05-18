@@ -54,3 +54,6 @@ new_sqlite_classes = ["ChetAgent"]
 [dev]
 port = 8787
 local_protocol = "http"
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "chet-memory"

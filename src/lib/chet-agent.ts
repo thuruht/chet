@@ -1,8 +1,14 @@
+import { z } from 'zod';
+
 import { Agent } from 'agents';
 import type { Env, ChetAgentState, ChatMessage } from './types.js';
 import { AGENT_CONFIGS, MODELS } from './config.js';
+import { createWorkersAI } from 'workers-ai-provider';
+import { streamText, convertToModelMessages } from 'ai';
+// Polyfill toDataStreamResponse if it is not exported
 
-
+import { createCodeTool } from '@cloudflare/codemode/ai';
+import { DynamicWorkerExecutor } from '@cloudflare/codemode';
 
 /**
  * ChetAgent is an Agent that handles chat interactions.
@@ -51,71 +57,132 @@ export class ChetAgentV2 extends Agent<Env, ChetAgentState> {
             });
           }
 
-          const aiParams: any = {
-            messages,
-            stream: true,
-            max_tokens: Math.min(params.maxTokens ?? modelConfig.maxTokensDefault, modelConfig.maxTokensMax),
-            ...params,
-          };
+          // Create the workers AI provider bound to the current env AI
+          const workersai = createWorkersAI({ binding: this.env.AI });
 
-          const aiResponse = await this.env.AI.run(modelConfig.id as any, aiParams);
+          // Initialize executor for tools if they exist
+          let tools: Record<string, any> = {};
 
-          if (!(aiResponse instanceof ReadableStream)) {
-            // Unlikely if stream: true, but just in case
-            const assistantMessage: ChatMessage = { role: 'assistant', content: (aiResponse as any).response || '' };
-            this.setState({ messages: [...messages, assistantMessage] });
-            return new Response(JSON.stringify(aiResponse), {
-              headers: { 'Content-Type': 'application/json' },
-            });
-          }
+          if (this.env.LOADER) {
+             const executor = new DynamicWorkerExecutor({
+               loader: this.env.LOADER as any,
+             });
 
-          const { readable, writable } = new TransformStream();
-          const writer = writable.getWriter();
-          const decoder = new TextDecoder();
-          let fullResponse = '';
+             // Fetch all MCP Servers from KV and construct their tools
+             const { keys } = await this.env.CHET_KV.list({ prefix: "mcpserver:" });
+             // We do not have direct access to standard MCP wrappers here unless we connect to them
+             // But we can add a simple tool execution via fetch to these servers (if they expose standard API)
+             // For the sake of demonstration and making it "agentic", we will use the `createCodeTool` with some built-in dummy tools or the MCP tool wrapper if supported
 
-          const pump = async () => {
-            const reader = aiResponse.getReader();
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                  const assistantMessage: ChatMessage = { role: 'assistant', content: fullResponse };
-                  this.setState({ messages: [...messages, assistantMessage] });
-                  writer.close();
-                  break;
-                }
+             // The documentation says: import { openApiMcpServer } from "@cloudflare/codemode/mcp";
+             // But connecting to generic MCP servers requires either @modelcontextprotocol/sdk or @cloudflare/codemode/mcp wrappers.
 
-                // Write the raw bytes directly to the output stream
-                await writer.write(value);
-
-                // Extract text for state saving
-                const chunk = decoder.decode(value, { stream: true });
-                for (const line of chunk.split('\n')) {
-                  if (line.trim().startsWith('data: ') && line.trim() !== 'data: [DONE]') {
-                    const jsonStr = line.trim().substring(6);
-                    try {
-                      const parsed = JSON.parse(jsonStr);
-                      if (parsed.response) {
-                        fullResponse += parsed.response;
-                      }
-                    } catch (e) {
-                      // Ignore parsing errors for partial lines
+             // We will create a general CodeMode tool with built-in sandbox capabilities
+             const codemode = createCodeTool({
+               tools: {
+                  // A tool to fetch URLs
+                  // A simple web search tool (using DuckDuckGo HTML as a mock/proxy or standard fetch if we had an API key)
+                  webSearch: {
+                    description: "Search the web for current information",
+                    inputSchema: z.object({ query: z.string() }),
+                    execute: async ({ query }: { query: string }) => {
+                       try {
+                         // Mocking a search API for demonstration without API keys
+                         // In a real agentic app, you'd integrate Tavily, Bing, or Serper here.
+                         const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+                         const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+                         const text = await r.text();
+                         // Extremely basic extraction of snippet texts
+                         const snippets = text.match(/<a class="result__snippet[^>]*>(.*?)<\/a>/g);
+                         if (snippets) {
+                            return { results: snippets.map(s => s.replace(/<[^>]+>/g, '')).slice(0, 5) };
+                         }
+                         return { results: ["No clear results found, try a different query."] };
+                       } catch (e: any) {
+                         return { error: e.message };
+                       }
+                    }
+                  },
+                  fetchUrl: {
+                    description: "Fetch contents of a URL",
+                    inputSchema: z.object({ url: z.string() }),
+                    execute: async ({ url }: { url: string }) => {
+                       try {
+                         const r = await fetch(url);
+                         return { status: r.status, text: (await r.text()).slice(0, 5000) };
+                       } catch (e: any) {
+                         return { error: e.message };
+                       }
                     }
                   }
-                }
-              }
-            } catch (err) {
-              console.error("Stream pump error:", err);
-              writer.abort(err);
+               },
+               executor,
+             });
+
+             tools = { codemode };
+          }
+
+
+          // --- Long-Term Memory (RAG) ---
+          // Generate embedding for the user message
+          let contextToAdd = "";
+          try {
+            if (this.env.VECTORIZE) {
+               const embeddingResponse = await this.env.AI.run('@cf/baai/bge-base-en-v1.5', { text: [content] });
+               const embedding = (embeddingResponse as any).data[0];
+
+               // Search Vectorize
+               const matches = await this.env.VECTORIZE.query(embedding, { topK: 3 });
+
+               if (matches && matches.matches && matches.matches.length > 0) {
+                 // Retrieve the actual text from KV (or metadata)
+                 // For this example, assuming text is stored in KV
+                 let relevantTexts = [];
+                 for (const match of matches.matches) {
+                   const pastMsg = await this.env.CHET_KV.get(`memory:${match.id}`);
+                   if (pastMsg) relevantTexts.push(pastMsg);
+                 }
+                 if (relevantTexts.length > 0) {
+                    contextToAdd = `\n\nRelevant past context:\n${relevantTexts.join('\n')}`;
+                 }
+               }
+
+               // Store the new message in background
+               this.ctx.waitUntil((async () => {
+                 const id = crypto.randomUUID();
+                 await this.env.CHET_KV.put(`memory:${id}`, content);
+                 await this.env.VECTORIZE.upsert([{ id, values: embedding }]);
+               })());
             }
-          };
+          } catch(e) {
+            console.warn("RAG Memory error:", e);
+          }
 
-          pump();
+          let finalSystemPrompt = messages[0].role === 'system' ? messages[0].content : undefined;
+          if (finalSystemPrompt && contextToAdd) {
+             finalSystemPrompt += contextToAdd;
+          } else if (contextToAdd) {
+             finalSystemPrompt = contextToAdd;
+          }
+          // --- End Long-Term Memory ---
 
-          return new Response(readable, {
-            headers: { 'Content-Type': 'text/event-stream' },
+          const maxTokens = Math.min(params.maxTokens ?? modelConfig.maxTokensDefault, modelConfig.maxTokensMax);
+
+          // Vercel AI SDK streamText returns standard web standard streams
+          const result = streamText({
+            model: workersai(modelConfig.id),
+            system: finalSystemPrompt,
+            messages: messages.filter((m: any) => m.role !== 'system').map((m: any) => ({ role: m.role, content: m.content })),
+
+
+            tools: Object.keys(tools).length > 0 ? tools : undefined,
+            onFinish: async ({ text, toolCalls, toolResults, finishReason, usage }) => {
+              const assistantMessage: ChatMessage = { role: 'assistant', content: text };
+              this.setState({ messages: [...messages, assistantMessage] });
+            }
           });
+
+          return result.toTextStreamResponse();
 
         } catch (error: any) {
           console.error('Error in ChetAgent POST:', error);

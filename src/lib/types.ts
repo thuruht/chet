@@ -16,12 +16,14 @@ export interface Env {
   /**
    * Binding for static assets.
    */
-  ASSETS: { fetch: (request: Request) => Promise<Response> };
+  ASSETS: Fetcher;
 
   /**
    * KV namespace for storing prompts, MCP servers, and other data.
    */
   CHET_KV: KVNamespace;
+  VECTORIZE: any; // VectorizeIndex
+  LOADER: any;
   ChetAgent: DurableObjectNamespace<import("./chet-agent.js").ChetAgentV2>;
 }
 
