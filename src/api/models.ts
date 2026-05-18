@@ -22,6 +22,32 @@ modelsRouter.get('/', (c) => {
  */
 modelsRouter.get('/examples', (c) => {
   const examples = {
+
+    "llama-3.1-8b": {
+      prompts: [
+        "Explain quantum computing to a 10-year-old",
+        "Write a short story about time travel",
+        "Analyze the economic impacts of renewable energy",
+        "Compare and contrast different machine learning algorithms"
+      ]
+    },
+    "gemma-7b": {
+      prompts: [
+        "What are the benefits of functional programming?",
+        "Write a poem about the ocean",
+        "Give me a summary of World War II",
+        "Explain how a neural network works"
+      ]
+    },
+    "mistral-7b": {
+      prompts: [
+        "Write a guide on how to bake a chocolate cake",
+        "Explain the theory of relativity",
+        "Generate a creative writing prompt",
+        "Translate this English text to French"
+      ]
+    },
+
     "qwen2.5-coder-32b": {
       prompts: [
         "Write a Python function to calculate the factorial of a number using recursion",
