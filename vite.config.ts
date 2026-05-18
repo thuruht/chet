@@ -10,6 +10,7 @@ export default defineConfig({
         entryFileNames: 'index.js',
         format: 'es',
       },
+      preserveEntrySignatures: 'strict',
       external: ['agents'],
     },
     target: 'es2022',

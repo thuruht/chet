@@ -2,12 +2,12 @@
  * Type definitions for the C.H.E.T. application.
  */
 import { Agent } from 'agents';
-import type { TypedEnv } from '@cloudflare/opaque-ts';
+
 
 /**
  * Application environment definition with typed bindings
  */
-export type Env = TypedEnv<{
+export interface Env {
   /**
    * Binding for the Workers AI API.
    */
@@ -22,7 +22,8 @@ export type Env = TypedEnv<{
    * KV namespace for storing prompts, MCP servers, and other data.
    */
   CHET_KV: KVNamespace;
-}>;
+  ChetAgent: DurableObjectNamespace<import("./chet-agent.js").ChetAgentV2>;
+}
 
 /**
  * Represents a chat message.

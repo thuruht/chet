@@ -8,7 +8,7 @@ import { promptsRouter } from './api/prompts.js';
 import { mcpServersRouter } from './api/mcp-servers.js';
 import { fileRouter } from './api/file.js';
 import type { Env } from './lib/types.js';
-import { ChetAgent } from './lib/chet-agent.js';
+import { ChetAgentV2 as ChetAgent } from './lib/chet-agent.js';
 
 // Create the main app
 const app = new Hono<{ Bindings: Env }>();
@@ -34,8 +34,8 @@ app.all('/api/chat', async (c) => {
       return c.json({ error: 'Session ID is required' }, 400);
     }
 
-    const agent = getAgentByName<Env, ChetAgent>(c.env.ChetAgent, sessionId);
-    return agent.fetch(c.req.raw);
+    const agent = await getAgentByName<Env, ChetAgent>(c.env.ChetAgent, sessionId);
+    return await agent.fetch(c.req.raw);
   } catch (error) {
     console.error('Error fetching from agent:', error);
     return c.json({ error: 'Failed to fetch from agent' }, 500);
@@ -43,7 +43,7 @@ app.all('/api/chat', async (c) => {
 });
 app.route('/api/prompts', promptsRouter);
 app.route('/api/mcp-servers', mcpServersRouter);
-app.route('/api', fileRouter);
+app.route('/api/file', fileRouter);
 
 // Route static assets
 app.get('*', async (c) => {

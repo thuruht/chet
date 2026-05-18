@@ -1,17 +1,16 @@
 import { Agent } from 'agents';
 import type { Env, ChetAgentState, ChatMessage } from './types.js';
-import { MODELS } from './config.js';
+import { AGENT_CONFIGS, MODELS } from './config.js';
 
-const SYSTEM_PROMPT =
-  'You are C.H.E.T. (Chat Helper for (almost) Every Task), a helpful and friendly AI assistant. You are designed to assist with a wide variety of tasks and provide concise, accurate, and helpful responses. Always identify yourself as C.H.E.T. when introducing yourself or when asked about your identity.';
+
 
 /**
  * ChetAgent is an Agent that handles chat interactions.
  */
-export class ChetAgent extends Agent<Env, ChetAgentState> {
+export class ChetAgentV2 extends Agent<Env, ChetAgentState> {
   // Set the initial state for new agent instances
   initialState: ChetAgentState = {
-    messages: [{ role: 'system', content: SYSTEM_PROMPT }],
+    messages: [{ role: 'system', content: AGENT_CONFIGS.DEFAULT.systemPrompt }],
   };
 
   async onRequest(request: Request): Promise<Response> {
@@ -31,7 +30,7 @@ export class ChetAgent extends Agent<Env, ChetAgentState> {
       case 'POST': {
         try {
           const body = await request.json<{ content: string; model?: string; [key: string]: any }>();
-          const { content, model = 'llama-3.3-70b', ...params } = body;
+          const { content, model = AGENT_CONFIGS.DEFAULT.model, ...params } = body;
 
           if (!content) {
             return new Response(JSON.stringify({ error: 'Invalid request: content is required' }), {
@@ -61,51 +60,83 @@ export class ChetAgent extends Agent<Env, ChetAgentState> {
 
           const aiResponse = await this.env.AI.run(modelConfig.id as any, aiParams);
 
+          if (!(aiResponse instanceof ReadableStream)) {
+            // Unlikely if stream: true, but just in case
+            const assistantMessage: ChatMessage = { role: 'assistant', content: (aiResponse as any).response || '' };
+            this.setState({ messages: [...messages, assistantMessage] });
+            return new Response(JSON.stringify(aiResponse), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
           const { readable, writable } = new TransformStream();
           const writer = writable.getWriter();
-          const encoder = new TextEncoder();
           const decoder = new TextDecoder();
           let fullResponse = '';
 
           const pump = async () => {
             const reader = aiResponse.getReader();
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                writer.close();
-                break;
-              }
-              const chunk = decoder.decode(value, { stream: true });
-              for (const line of chunk.split('\n')) {
-                if (line.trim().startsWith('data: ')) {
-                  const json = line.trim().substring(6);
-                  try {
-                    const parsed = JSON.parse(json);
-                    if (parsed.response) {
-                      fullResponse += parsed.response;
-                      writer.write(encoder.encode(JSON.stringify({ response: parsed.response }) + '\n'));
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                  const assistantMessage: ChatMessage = { role: 'assistant', content: fullResponse };
+                  this.setState({ messages: [...messages, assistantMessage] });
+                  writer.close();
+                  break;
+                }
+
+                // Write the raw bytes directly to the output stream
+                await writer.write(value);
+
+                // Extract text for state saving
+                const chunk = decoder.decode(value, { stream: true });
+                for (const line of chunk.split('\n')) {
+                  if (line.trim().startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+                    const jsonStr = line.trim().substring(6);
+                    try {
+                      const parsed = JSON.parse(jsonStr);
+                      if (parsed.response) {
+                        fullResponse += parsed.response;
+                      }
+                    } catch (e) {
+                      // Ignore parsing errors for partial lines
                     }
-                  } catch (e) {
-                    // Ignore parsing errors
                   }
                 }
               }
+            } catch (err) {
+              console.error("Stream pump error:", err);
+              writer.abort(err);
             }
-            const assistantMessage: ChatMessage = { role: 'assistant', content: fullResponse };
-            this.setState({ messages: [...messages, assistantMessage] });
           };
 
           pump();
 
           return new Response(readable, {
-            headers: { 'Content-Type': 'application/x-ndjson' },
+            headers: { 'Content-Type': 'text/event-stream' },
           });
 
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error in ChetAgent POST:', error);
-          const detail = error && (error as any).message ? (error as any).message : String(error);
-          return new Response(JSON.stringify({ error: 'Failed to process request', detail }), {
-            status: 500,
+
+          let status = 500;
+          let detail = error?.message || String(error);
+
+          // Check for Cloudflare specific error properties
+          if (error?.status || error?.statusCode) {
+             status = error.status || error.statusCode;
+          }
+          if (error?.details) {
+             detail += ` - ${JSON.stringify(error.details)}`;
+          }
+
+          return new Response(JSON.stringify({
+            error: 'Failed to process request',
+            detail,
+            isAiError: !!error?.statusCode
+          }), {
+            status,
             headers: { 'Content-Type': 'application/json' },
           });
         }

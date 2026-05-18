@@ -13,9 +13,9 @@ export function errorHandler(app: Hono<{ Bindings: Env }>) {
       return err.getResponse();
     }
     
-    const status = err.status || 500;
+    const status = (err as any).status || 500;
     const message = err.message || 'Internal Server Error';
-    const detail = err.detail || (err.stack ? String(err.stack).split('\n').slice(0, 5).join('\n') : undefined);
+    const detail = (err as any).detail || (err.stack ? String(err.stack).split('\n').slice(0, 5).join('\n') : undefined);
     
     const payload: any = { error: message };
     if (detail) payload.detail = detail;

@@ -207,7 +207,14 @@ What would you like to work on today?`
           if (!line) continue;
 
           try {
-            const jsonData = JSON.parse(line);
+
+            let jsonStr = line;
+            if (line.startsWith('data: ')) {
+              jsonStr = line.substring(6);
+            }
+            if (jsonStr === '[DONE]') continue;
+            const jsonData = JSON.parse(jsonStr);
+
             if (jsonData.response) {
               responseText += jsonData.response;
               contentElement.textContent = responseText;
