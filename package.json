@@ -48,5 +48,8 @@
     "test": "vitest",
     "build": "vite build",
     "format": "prettier --write ."
+  },
+  "overrides": {
+    "vite": "$vite"
   }
 }
