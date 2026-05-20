@@ -48,7 +48,7 @@ class_name = "ChetAgent"
 # Migration for the ChetAgent Durable Object
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["ChetAgent"]
+new_classes = ["ChetAgent"]
 
 # Development settings
 [dev]
