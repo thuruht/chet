@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { Agent } from 'agents';
-import type { Env, ChetAgentState, ChatMessage } from './types.js';
+import type { Env, ChetAgentState, ChatMessage, MCPServer } from './types.js';
 import { AGENT_CONFIGS, MODELS } from './config.js';
 import { createWorkersAI } from 'workers-ai-provider';
 import { streamText, convertToModelMessages } from 'ai';
@@ -70,16 +70,42 @@ export class ChetAgentV2 extends Agent<Env, ChetAgentState> {
 
              // Fetch all MCP Servers from KV and construct their tools
              const { keys } = await this.env.CHET_KV.list({ prefix: "mcpserver:" });
-             // We do not have direct access to standard MCP wrappers here unless we connect to them
-             // But we can add a simple tool execution via fetch to these servers (if they expose standard API)
-             // For the sake of demonstration and making it "agentic", we will use the `createCodeTool` with some built-in dummy tools or the MCP tool wrapper if supported
 
-             // The documentation says: import { openApiMcpServer } from "@cloudflare/codemode/mcp";
-             // But connecting to generic MCP servers requires either @modelcontextprotocol/sdk or @cloudflare/codemode/mcp wrappers.
+             const mcpTools: Record<string, any> = {};
+
+             for (const key of keys) {
+                const serverData = await this.env.CHET_KV.get(key.name, "json") as MCPServer | null;
+                if (serverData && serverData.url) {
+                    // Create a generic fetch tool for each MCP server
+                    // In a production app, this would use openApiMcpServer or full SSE connection
+                    const safeName = serverData.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                    mcpTools[`mcp_${safeName}`] = {
+                       description: `Access tools from MCP Server: ${serverData.name}`,
+                       inputSchema: z.object({ endpoint: z.string().optional(), body: z.any().optional() }),
+                       execute: async ({ endpoint = '', body }: any) => {
+                          try {
+                            const targetUrl = new URL(endpoint, serverData.url).toString();
+                            const r = await fetch(targetUrl, {
+                               method: body ? 'POST' : 'GET',
+                               headers: {
+                                  'Content-Type': 'application/json',
+                                  ...(serverData.apiKey ? { 'Authorization': `Bearer ${serverData.apiKey}` } : {})
+                               },
+                               body: body ? JSON.stringify(body) : undefined
+                            });
+                            return { status: r.status, data: await r.text() };
+                          } catch (e: any) {
+                            return { error: e.message };
+                          }
+                       }
+                    };
+                }
+             }
 
              // We will create a general CodeMode tool with built-in sandbox capabilities
              const codemode = createCodeTool({
                tools: {
+                  ...mcpTools,
                   // A tool to fetch URLs
                   // A simple web search tool (using DuckDuckGo HTML as a mock/proxy or standard fetch if we had an API key)
                   webSearch: {

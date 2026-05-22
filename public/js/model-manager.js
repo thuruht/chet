@@ -89,9 +89,26 @@ class ModelManager {
     }
   }
 
-  selectModel(key) {
+selectModel(key) {
     const m = this.availableModels[key];
     if (!m) return;
+
+    // Inject a system message into the chat UI if it actually changed and isn't the initial load
+    if (this.currentModel && this.currentModel.key !== key) {
+      const chatMessages = document.getElementById('chat-messages');
+      if (chatMessages) {
+         const indicator = document.createElement('div');
+         indicator.className = 'typing-indicator visible';
+         indicator.style.color = 'var(--text-light)';
+         indicator.style.fontSize = '0.8rem';
+         indicator.style.textAlign = 'center';
+         indicator.style.margin = '10px 0';
+         indicator.textContent = `🔄 Switched to model: ${m.name}`;
+         chatMessages.appendChild(indicator);
+         chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+
     this.currentModel = m;
     if (this.modelSelect) this.modelSelect.value = key;
     if (this.currentModelDisplay) this.currentModelDisplay.textContent = m.name;
@@ -99,6 +116,7 @@ class ModelManager {
     this.renderModelInfo(m);
     this.updateParameterDisplays();
   }
+
 
   renderModelInfo(model) {
     if (!this.modelInfo) return;
