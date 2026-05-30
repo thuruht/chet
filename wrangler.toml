@@ -66,6 +66,10 @@ name = "SEND_EMAIL"
 destination_address = "chet@distorted.work"
 
 # Vectorize Index for RAG
+
+
+
+# Vectorize Index for RAG
 [[vectorize]]
 binding = "VECTORIZE_INDEX"
 index_name = "chet-rag-index"
