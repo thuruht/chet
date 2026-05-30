@@ -54,11 +54,6 @@ new_sqlite_classes = ["ChetAgent"]
 [dev]
 port = 8787
 local_protocol = "http"
-# D1 Database
-[[d1_databases]]
-binding = "DB"
-database_name = "chet-users-d1"
-database_id = "00000000-0000-0000-0000-000000000000"
 
 # Email Sending Beta Binding
 [[send_email]]
@@ -73,3 +68,9 @@ destination_address = "chet@distorted.work"
 [[vectorize]]
 binding = "VECTORIZE_INDEX"
 index_name = "chet-rag-index"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "chet-users-d1"
+database_id = "e289cfe2-d7ad-48bc-b7e5-b12be53d7869"
