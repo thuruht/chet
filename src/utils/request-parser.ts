@@ -8,15 +8,16 @@
 export const b64decode = (s: string) => {
   try {
     // Normalize base64url to standard base64: replace -_ back to +/ and pad with '='
-    let str = s.replace(/-/g, '+').replace(/_/g, '/');
+    let str = s.replace(/-/g, "+").replace(/_/g, "/");
     const pad = str.length % 4;
-    if (pad === 2) str += '==';
-    else if (pad === 3) str += '=';
-    
-    if (typeof atob === 'function') return atob(str);
+    if (pad === 2) str += "==";
+    else if (pad === 3) str += "=";
+
+    if (typeof atob === "function") return atob(str);
     // @ts-ignore - Node Buffer may not be present in Worker runtime, but in local tests it's fine
-    if (typeof Buffer !== 'undefined') return Buffer.from(str, 'base64').toString('utf8');
-    throw new Error('No base64 decode available');
+    if (typeof Buffer !== "undefined")
+      return Buffer.from(str, "base64").toString("utf8");
+    throw new Error("No base64 decode available");
   } catch (e) {
     throw e;
   }
@@ -31,7 +32,9 @@ export const tryRepairMangledJson = (text: string) => {
   attempts.push(text);
 
   // Try URL-decoding (some proxies percent-encode)
-  try { attempts.push(decodeURIComponent(text)); } catch (_) {}
+  try {
+    attempts.push(decodeURIComponent(text));
+  } catch (_) {}
 
   // Replace unquoted keys like: key: with "key":
   try {
@@ -62,7 +65,7 @@ export async function parseRequestBody(request: Request) {
   // The request body can only be consumed once, so clone the request and
   // attempt to parse FormData from the clone first. This makes parsing
   // robust even if proxies strip or mangle the Content-Type header.
-  const contentType = (request.headers.get('content-type') || '').toLowerCase();
+  const contentType = (request.headers.get("content-type") || "").toLowerCase();
   const requestClone = request.clone();
   let rawBody: string | null = null;
   let parsedForm: FormData | null = null;
@@ -71,28 +74,31 @@ export async function parseRequestBody(request: Request) {
 
   // Helper to record attempts for diagnostics
   const recordAttempt = (label: string, value: string) => {
-    try { 
-      debugInfo.attempts.push({ 
-        label, 
-        snippet: value && value.length > 200 ? value.slice(0,200) : value 
-      }); 
+    try {
+      debugInfo.attempts.push({
+        label,
+        snippet: value && value.length > 200 ? value.slice(0, 200) : value,
+      });
     } catch (_) {}
   };
 
   try {
     // Try to parse form data from the cloned request regardless of Content-Type.
     parsedForm = await requestClone.formData();
-    const fval = parsedForm.get('payloadB64') || parsedForm.get('payload_b64') || parsedForm.get('payload');
+    const fval =
+      parsedForm.get("payloadB64") ||
+      parsedForm.get("payload_b64") ||
+      parsedForm.get("payload");
     if (fval) {
-      rawBody = typeof fval === 'string' ? (fval as string) : String(fval);
+      rawBody = typeof fval === "string" ? (fval as string) : String(fval);
     } else {
       const parts: string[] = [];
       for (const entry of parsedForm.entries()) {
         const k = String(entry[0]);
         const v = entry[1];
-        parts.push(`${k}=${String(v).slice(0,200)}`);
+        parts.push(`${k}=${String(v).slice(0, 200)}`);
       }
-      rawBody = parts.join('&');
+      rawBody = parts.join("&");
     }
   } catch (e) {
     // clone.formData() failed (not form data) or clone body couldn't be parsed as form; fall back
@@ -106,23 +112,27 @@ export async function parseRequestBody(request: Request) {
     if (parsedForm) {
       try {
         const form = parsedForm;
-        const fval = form.get('payloadB64') || form.get('payload_b64') || form.get('payload');
+        const fval =
+          form.get("payloadB64") ||
+          form.get("payload_b64") ||
+          form.get("payload");
         if (fval) {
-          const candidate = typeof fval === 'string' ? fval : (fval as any).toString();
+          const candidate =
+            typeof fval === "string" ? fval : (fval as any).toString();
           const decoded = b64decode(candidate);
-          recordAttempt('form_payload_decoded', decoded);
-          try { 
+          recordAttempt("form_payload_decoded", decoded);
+          try {
             body = JSON.parse(decoded);
           } catch (e) {
-            const repairs = tryRepairMangledJson(decoded || '');
+            const repairs = tryRepairMangledJson(decoded || "");
             for (let i = 0; i < repairs.length; i++) {
               const attempt = repairs[i];
               recordAttempt(`form_payload_repair_${i}`, attempt);
-              try { 
+              try {
                 body = JSON.parse(attempt);
-                break; 
-              } catch (_) { 
-                body = null; 
+                break;
+              } catch (_) {
+                body = null;
               }
             }
           }
@@ -138,24 +148,24 @@ export async function parseRequestBody(request: Request) {
   // 2) If not parsed yet, try direct JSON parse (most common path)
   if (!body) {
     try {
-      recordAttempt('raw', rawBody || '');
+      recordAttempt("raw", rawBody || "");
       body = rawBody ? JSON.parse(rawBody) : null;
     } catch (parseErr) {
       // Attempt repair heuristics
-      const repairs = tryRepairMangledJson(rawBody || '');
+      const repairs = tryRepairMangledJson(rawBody || "");
       for (let i = 0; i < repairs.length; i++) {
         const attempt = repairs[i];
         recordAttempt(`repair_${i}`, attempt);
-        try { 
+        try {
           body = JSON.parse(attempt);
-          break; 
-        } catch (_) { 
-          body = null; 
+          break;
+        } catch (_) {
+          body = null;
         }
       }
 
       if (!body) {
-        console.error('Failed to parse request body. Raw body:', rawBody);
+        console.error("Failed to parse request body. Raw body:", rawBody);
         throw new Error(`Invalid JSON: ${(parseErr as Error).message}`);
       }
     }
@@ -168,5 +178,5 @@ export async function parseRequestBody(request: Request) {
 export default {
   parseRequestBody,
   b64decode,
-  tryRepairMangledJson
+  tryRepairMangledJson,
 };
