@@ -50,8 +50,8 @@ authRouter.post("/login", async (c) => {
           ],
         };
 
-        // Assuming it's the standard send_email binding structure
-        await c.env.SEND_EMAIL.send(message);
+        // Assuming it's the standard send_email binding structure    await c.env.SEND_EMAIL.send(message);
+        // await c.env.SEND_EMAIL.send(message);
         // For now just output to console to avoid crashing local dev
         console.log(`[Email Stub] To: ${email}, Link: ${loginUrl}`);
       } else {
@@ -67,6 +67,7 @@ authRouter.post("/login", async (c) => {
     });
   } catch (error) {
     console.error("Login error:", error, error.stack || error.message || error);
+    console.error("Login error:", error);
     return c.json({ error: "Failed to process login request" }, 500);
   }
 });
@@ -209,6 +210,7 @@ export const requireAuth = async (c: Context, next: Next) => {
     await next();
   } catch (error) {
     console.error("Auth middleware error:", error, error.stack || error.message || error);
+    console.error("Auth middleware error:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 };
