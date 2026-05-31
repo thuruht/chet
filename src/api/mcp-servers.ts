@@ -1,5 +1,5 @@
-import { Hono } from 'hono';
-import type { Env, MCPServer } from '../lib/types.js';
+import { Hono } from "hono";
+import type { Env, MCPServer } from "../lib/types.js";
 
 // Create a router for MCP servers endpoints
 const mcpServersRouter = new Hono<{ Bindings: Env }>();
@@ -7,7 +7,7 @@ const mcpServersRouter = new Hono<{ Bindings: Env }>();
 /**
  * GET /api/mcp-servers - Get all saved MCP servers
  */
-mcpServersRouter.get('/', async (c) => {
+mcpServersRouter.get("/", async (c) => {
   try {
     const { keys } = await c.env.CHET_KV.list({ prefix: "mcpserver:" });
     const servers: MCPServer[] = [];
@@ -29,10 +29,14 @@ mcpServersRouter.get('/', async (c) => {
 /**
  * POST /api/mcp-servers - Create a new MCP server
  */
-mcpServersRouter.post('/', async (c) => {
+mcpServersRouter.post("/", async (c) => {
   try {
-    const { name, url, apiKey } = await c.req.json() as { name: string; url: string; apiKey?: string };
-    
+    const { name, url, apiKey } = (await c.req.json()) as {
+      name: string;
+      url: string;
+      apiKey?: string;
+    };
+
     if (!name || !url) {
       return c.json({ error: "Name and URL are required" }, 400);
     }
@@ -47,8 +51,8 @@ mcpServersRouter.post('/', async (c) => {
     const server: MCPServer = {
       id: crypto.randomUUID(),
       name,
-      url: url.endsWith('/') ? url : `${url}/`, // Ensure URL ends with a slash
-      apiKey: apiKey || '',
+      url: url.endsWith("/") ? url : `${url}/`, // Ensure URL ends with a slash
+      apiKey: apiKey || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -65,16 +69,23 @@ mcpServersRouter.post('/', async (c) => {
 /**
  * PUT /api/mcp-servers - Update an existing MCP server
  */
-mcpServersRouter.put('/:id', async (c) => {
+mcpServersRouter.put("/:id", async (c) => {
   try {
-    const id = c.req.param('id');
-    const { name, url, apiKey } = await c.req.json() as { name?: string; url?: string; apiKey?: string };
-    
+    const id = c.req.param("id");
+    const { name, url, apiKey } = (await c.req.json()) as {
+      name?: string;
+      url?: string;
+      apiKey?: string;
+    };
+
     if (!id) {
       return c.json({ error: "Server ID is required" }, 400);
     }
 
-    const existingServer = await c.env.CHET_KV.get(`mcpserver:${id}`, "json") as MCPServer | null;
+    const existingServer = (await c.env.CHET_KV.get(
+      `mcpserver:${id}`,
+      "json",
+    )) as MCPServer | null;
     if (!existingServer) {
       return c.json({ error: "MCP server not found" }, 404);
     }
@@ -91,7 +102,7 @@ mcpServersRouter.put('/:id', async (c) => {
     const updatedServer: MCPServer = {
       ...existingServer,
       name: name ?? existingServer.name,
-      url: url ? (url.endsWith('/') ? url : `${url}/`) : existingServer.url,
+      url: url ? (url.endsWith("/") ? url : `${url}/`) : existingServer.url,
       apiKey: apiKey !== undefined ? apiKey : existingServer.apiKey,
       updatedAt: new Date().toISOString(),
     };
@@ -108,10 +119,10 @@ mcpServersRouter.put('/:id', async (c) => {
 /**
  * DELETE /api/mcp-servers - Delete a MCP server
  */
-mcpServersRouter.delete('/:id', async (c) => {
+mcpServersRouter.delete("/:id", async (c) => {
   try {
-    const id = c.req.param('id');
-    
+    const id = c.req.param("id");
+
     if (!id) {
       return c.json({ error: "Server ID is required" }, 400);
     }

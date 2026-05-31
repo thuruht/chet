@@ -1,6 +1,6 @@
 /**
  * C.H.E.T. Main Application
- * 
+ *
  * Orchestrates the various modules and provides the main application logic.
  * This is a complete rewrite that modularizes the previous monolithic chat.js file.
  */
@@ -11,18 +11,20 @@ class CHETApplication {
     this.modelManager = null;
     this.chatManager = null;
     this.loadingManager = new LoadingManager();
-    
+
     this.init();
   }
 
   async init() {
     try {
       // Wait for DOM to be ready
-      if (document.readyState === 'loading') {
-        await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+      if (document.readyState === "loading") {
+        await new Promise((resolve) =>
+          document.addEventListener("DOMContentLoaded", resolve),
+        );
       }
 
-      showToast('Initializing C.H.E.T...', 'info', 2000);
+      showToast("Initializing C.H.E.T...", "info", 2000);
 
       // Initialize managers in order
       this.themeManager = new ThemeManager();
@@ -36,26 +38,25 @@ class CHETApplication {
       await this.initializePromptManagement();
       await this.initializeMCPManagement();
 
-      showToast('C.H.E.T. ready! 🚀', 'success', 2000);
-
+      showToast("C.H.E.T. ready! 🚀", "success", 2000);
     } catch (error) {
-      ErrorHandler.handle(error, 'Application Initialization');
+      ErrorHandler.handle(error, "Application Initialization");
     }
   }
 
   setupGlobalEventListeners() {
     // Global keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener("keydown", (e) => {
       // Ctrl/Cmd + / for help
-      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
         e.preventDefault();
         this.showHelpDialog();
       }
-      
+
       // Ctrl/Cmd + K for focus input
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
-        const userInput = document.getElementById('user-input');
+        const userInput = document.getElementById("user-input");
         if (userInput) {
           userInput.focus();
         }
@@ -63,8 +64,8 @@ class CHETApplication {
     });
 
     // Handle window visibility changes for better performance
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
         // Refresh any stale data when user returns
         this.refreshApplicationState();
       }
@@ -72,62 +73,65 @@ class CHETApplication {
   }
 
   async initializePromptManagement() {
-    const addPromptBtn = document.getElementById('add-prompt-btn');
-    const promptsList = document.getElementById('prompts-list');
-    
+    const addPromptBtn = document.getElementById("add-prompt-btn");
+    const promptsList = document.getElementById("prompts-list");
+
     if (!addPromptBtn || !promptsList) return;
 
     // Load saved prompts
     await this.loadPrompts();
 
     // Add prompt button handler
-    addPromptBtn.addEventListener('click', () => this.showPromptModal());
+    addPromptBtn.addEventListener("click", () => this.showPromptModal());
   }
 
   async loadPrompts() {
     try {
-      const response = await fetch('/api/prompts');
+      const response = await fetch("/api/prompts");
       if (response.ok) {
         const data = await response.json();
         this.displayPrompts(data.prompts || []);
       }
     } catch (error) {
-      console.error('Failed to load prompts:', error);
+      console.error("Failed to load prompts:", error);
     }
   }
 
   displayPrompts(prompts) {
-    const promptsList = document.getElementById('prompts-list');
+    const promptsList = document.getElementById("prompts-list");
     if (!promptsList) return;
-    while (promptsList.firstChild) promptsList.removeChild(promptsList.firstChild);
+    while (promptsList.firstChild)
+      promptsList.removeChild(promptsList.firstChild);
 
-    prompts.forEach(prompt => {
-      const promptItem = document.createElement('div');
-      promptItem.className = 'prompt-item';
+    prompts.forEach((prompt) => {
+      const promptItem = document.createElement("div");
+      promptItem.className = "prompt-item";
 
-      const header = document.createElement('div');
-      header.className = 'prompt-header';
+      const header = document.createElement("div");
+      header.className = "prompt-header";
 
-      const h4 = document.createElement('h4');
+      const h4 = document.createElement("h4");
       h4.textContent = prompt.name;
 
-      const actions = document.createElement('div');
-      actions.className = 'prompt-actions';
+      const actions = document.createElement("div");
+      actions.className = "prompt-actions";
 
-      const useBtn = document.createElement('button');
-      useBtn.title = 'Use Prompt';
-      useBtn.textContent = '📝';
-      useBtn.addEventListener('click', () => this.usePrompt(prompt.id));
+      const useBtn = document.createElement("button");
+      useBtn.title = "Use Prompt";
+      useBtn.textContent = "📝";
+      useBtn.addEventListener("click", () => this.usePrompt(prompt.id));
 
-      const editBtn = document.createElement('button');
-      editBtn.title = 'Edit';
-      editBtn.textContent = '✏️';
-      editBtn.addEventListener('click', () => this.editPrompt(prompt));
+      const editBtn = document.createElement("button");
+      editBtn.title = "Edit";
+      editBtn.textContent = "✏️";
+      editBtn.addEventListener("click", () => this.editPrompt(prompt));
 
-      const delBtn = document.createElement('button');
-      delBtn.title = 'Delete';
-      delBtn.textContent = '🗑️';
-      delBtn.addEventListener('click', () => this.deletePrompt(prompt.id, prompt.name));
+      const delBtn = document.createElement("button");
+      delBtn.title = "Delete";
+      delBtn.textContent = "🗑️";
+      delBtn.addEventListener("click", () =>
+        this.deletePrompt(prompt.id, prompt.name),
+      );
 
       actions.appendChild(useBtn);
       actions.appendChild(editBtn);
@@ -136,19 +140,19 @@ class CHETApplication {
       header.appendChild(h4);
       header.appendChild(actions);
 
-      const contentP = document.createElement('p');
-      contentP.className = 'prompt-content';
-      contentP.textContent = `${prompt.content.substring(0, 100)}${prompt.content.length > 100 ? '...' : ''}`;
+      const contentP = document.createElement("p");
+      contentP.className = "prompt-content";
+      contentP.textContent = `${prompt.content.substring(0, 100)}${prompt.content.length > 100 ? "..." : ""}`;
 
       promptItem.appendChild(header);
       promptItem.appendChild(contentP);
 
       if (prompt.tags && prompt.tags.length > 0) {
-        const tagsDiv = document.createElement('div');
-        tagsDiv.className = 'prompt-tags';
-        prompt.tags.forEach(tag => {
-          const span = document.createElement('span');
-          span.className = 'tag';
+        const tagsDiv = document.createElement("div");
+        tagsDiv.className = "prompt-tags";
+        prompt.tags.forEach((tag) => {
+          const span = document.createElement("span");
+          span.className = "tag";
           span.textContent = tag;
           tagsDiv.appendChild(span);
         });
@@ -161,20 +165,20 @@ class CHETApplication {
 
   usePrompt(promptId) {
     // Implementation for using a saved prompt
-    const userInput = document.getElementById('user-input');
+    const userInput = document.getElementById("user-input");
     if (userInput) {
       // This would fetch the prompt and populate the input
       fetch(`/api/prompts?id=${promptId}`)
-        .then(response => response.json())
-        .then(prompts => {
-          const prompt = prompts.find(p => p.id === promptId);
+        .then((response) => response.json())
+        .then((prompts) => {
+          const prompt = prompts.find((p) => p.id === promptId);
           if (prompt) {
             userInput.value = prompt.content;
             userInput.focus();
-            showToast('Prompt loaded', 'success');
+            showToast("Prompt loaded", "success");
           }
         })
-        .catch(error => ErrorHandler.handle(error, 'Use Prompt'));
+        .catch((error) => ErrorHandler.handle(error, "Use Prompt"));
     }
   }
 
@@ -183,84 +187,90 @@ class CHETApplication {
   }
 
   async deletePrompt(promptId, promptName) {
-    if (!confirm(`Are you sure you want to delete the prompt "${promptName}"?`)) {
+    if (
+      !confirm(`Are you sure you want to delete the prompt "${promptName}"?`)
+    ) {
       return;
     }
 
     try {
       const response = await fetch(`/api/prompts?id=${promptId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (response.ok) {
-        showToast('Prompt deleted successfully!', 'success');
+        showToast("Prompt deleted successfully!", "success");
         await this.loadPrompts();
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to delete prompt');
+        throw new Error(error.error || "Failed to delete prompt");
       }
     } catch (error) {
-      ErrorHandler.handle(error, 'Delete Prompt');
+      ErrorHandler.handle(error, "Delete Prompt");
     }
   }
 
   async initializeMCPManagement() {
-    const addMCPBtn = document.getElementById('add-mcp-btn');
-    const mcpList = document.getElementById('mcp-list');
-    
+    const addMCPBtn = document.getElementById("add-mcp-btn");
+    const mcpList = document.getElementById("mcp-list");
+
     if (!addMCPBtn || !mcpList) return;
 
     // Load MCP servers
     await this.loadMCPServers();
 
     // Add MCP server button handler
-    addMCPBtn.addEventListener('click', () => this.showMCPModal());
+    addMCPBtn.addEventListener("click", () => this.showMCPModal());
   }
 
   async loadMCPServers() {
     try {
-      const response = await fetch('/api/mcp-servers');
+      const response = await fetch("/api/mcp-servers");
       if (response.ok) {
         const data = await response.json();
         this.displayMCPServers(data.servers || []);
       }
     } catch (error) {
-      console.error('Failed to load MCP servers:', error);
+      console.error("Failed to load MCP servers:", error);
     }
   }
 
   displayMCPServers(servers) {
-    const mcpList = document.getElementById('mcp-list');
+    const mcpList = document.getElementById("mcp-list");
     if (!mcpList) return;
     while (mcpList.firstChild) mcpList.removeChild(mcpList.firstChild);
 
-    servers.forEach(server => {
-      const serverItem = document.createElement('div');
-      serverItem.className = `mcp-item ${server.enabled ? 'enabled' : 'disabled'}`;
+    servers.forEach((server) => {
+      const serverItem = document.createElement("div");
+      serverItem.className = `mcp-item ${server.enabled ? "enabled" : "disabled"}`;
 
-      const header = document.createElement('div');
-      header.className = 'mcp-header';
+      const header = document.createElement("div");
+      header.className = "mcp-header";
 
-      const h4 = document.createElement('h4');
+      const h4 = document.createElement("h4");
       h4.textContent = server.name;
 
-      const actions = document.createElement('div');
-      actions.className = 'mcp-actions';
+      const actions = document.createElement("div");
+      actions.className = "mcp-actions";
 
-      const toggleBtn = document.createElement('button');
-      toggleBtn.title = 'Toggle Enable/Disable';
-      toggleBtn.textContent = server.enabled ? '🟢' : '🔴';
-      toggleBtn.addEventListener('click', () => this.toggleMCPServer(server.id));
+      const toggleBtn = document.createElement("button");
+      toggleBtn.title = "Toggle Enable/Disable";
+      toggleBtn.textContent = server.enabled ? "🟢" : "🔴";
+      toggleBtn.addEventListener("click", () =>
+        this.toggleMCPServer(server.id),
+      );
 
-      const editBtn = document.createElement('button');
-      editBtn.title = 'Edit';
-      editBtn.textContent = '✏️';
-      editBtn.addEventListener('click', () => this.editMCPServer(server));
+      const editBtn = document.createElement("button");
+      editBtn.title = "Edit";
+      editBtn.textContent = "✏️";
+      editBtn.addEventListener("click", () => this.editMCPServer(server));
 
-      const delBtn = document.createElement('button');
-      delBtn.title = 'Delete';
-      delBtn.textContent = '🗑️';
-      delBtn.addEventListener('click', () => this.deleteMCPServer(server.id, server.name));
+      const delBtn = document.createElement("button");
+      delBtn.title = "Delete";
+      delBtn.textContent = "🗑️";
+      delBtn.addEventListener("click", () =>
+        this.deleteMCPServer(server.id, server.name),
+      );
 
       actions.appendChild(toggleBtn);
       actions.appendChild(editBtn);
@@ -269,16 +279,18 @@ class CHETApplication {
       header.appendChild(h4);
       header.appendChild(actions);
 
-      const cmd = document.createElement('p');
-      cmd.className = 'mcp-command';
-      cmd.textContent = Array.isArray(server.command) ? server.command.join(' ') : server.command;
+      const cmd = document.createElement("p");
+      cmd.className = "mcp-command";
+      cmd.textContent = Array.isArray(server.command)
+        ? server.command.join(" ")
+        : server.command;
 
       serverItem.appendChild(header);
       serverItem.appendChild(cmd);
 
       if (server.description) {
-        const desc = document.createElement('p');
-        desc.className = 'mcp-description';
+        const desc = document.createElement("p");
+        desc.className = "mcp-description";
         desc.textContent = server.description;
         serverItem.appendChild(desc);
       }
@@ -322,13 +334,13 @@ class CHETApplication {
       </div>
     `;
 
-    this.showModal('C.H.E.T. Help', helpContent);
+    this.showModal("C.H.E.T. Help", helpContent);
   }
 
   showModal(title, content) {
     // Create modal overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
     overlay.style.cssText = `
       position: fixed;
       top: 0;
@@ -344,8 +356,8 @@ class CHETApplication {
     `;
 
     // Create modal content
-    const modal = document.createElement('div');
-    modal.className = 'modal-content';
+    const modal = document.createElement("div");
+    modal.className = "modal-content";
     modal.style.cssText = `
       background: var(--light-bg);
       color: var(--text-color);
@@ -359,28 +371,32 @@ class CHETApplication {
     `;
 
     // Header
-    const header = document.createElement('div');
-    header.className = 'modal-header';
-    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
+    const header = document.createElement("div");
+    header.className = "modal-header";
+    header.style.cssText =
+      "display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;";
 
-    const h2 = document.createElement('h2');
-    h2.style.margin = '0';
-    h2.style.color = 'var(--primary-color)';
+    const h2 = document.createElement("h2");
+    h2.style.margin = "0";
+    h2.style.color = "var(--primary-color)";
     h2.textContent = title;
 
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'modal-close';
-    closeBtn.style.cssText = 'background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-light);';
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => document.body.removeChild(overlay));
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "modal-close";
+    closeBtn.style.cssText =
+      "background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-light);";
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", () =>
+      document.body.removeChild(overlay),
+    );
 
     header.appendChild(h2);
     header.appendChild(closeBtn);
 
-    const body = document.createElement('div');
-    body.className = 'modal-body';
+    const body = document.createElement("div");
+    body.className = "modal-body";
 
-    if (typeof content === 'string') {
+    if (typeof content === "string") {
       try {
         const frag = document.createRange().createContextualFragment(content);
         body.appendChild(frag);
@@ -399,7 +415,7 @@ class CHETApplication {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    overlay.addEventListener('click', (e) => {
+    overlay.addEventListener("click", (e) => {
       if (e.target === overlay) {
         document.body.removeChild(overlay);
       }
@@ -410,38 +426,38 @@ class CHETApplication {
   }
 
   showPromptModal(prompt = null) {
-    const modal = document.getElementById('prompt-modal');
+    const modal = document.getElementById("prompt-modal");
     if (!modal) return;
 
-    const title = document.getElementById('prompt-modal-title');
-    const nameInput = document.getElementById('prompt-name');
-    const contentInput = document.getElementById('prompt-content');
-    const tagsInput = document.getElementById('prompt-tags');
-    const saveBtn = document.getElementById('save-prompt');
-    const cancelBtn = document.getElementById('cancel-prompt');
+    const title = document.getElementById("prompt-modal-title");
+    const nameInput = document.getElementById("prompt-name");
+    const contentInput = document.getElementById("prompt-content");
+    const tagsInput = document.getElementById("prompt-tags");
+    const saveBtn = document.getElementById("save-prompt");
+    const cancelBtn = document.getElementById("cancel-prompt");
 
     // Reset form
-    nameInput.value = '';
-    contentInput.value = '';
-    tagsInput.value = '';
+    nameInput.value = "";
+    contentInput.value = "";
+    tagsInput.value = "";
 
     if (prompt) {
       // Edit mode
-      title.textContent = 'Edit Prompt';
+      title.textContent = "Edit Prompt";
       nameInput.value = prompt.name;
       contentInput.value = prompt.content;
-      tagsInput.value = prompt.tags.join(', ');
+      tagsInput.value = prompt.tags.join(", ");
       saveBtn.dataset.promptId = prompt.id;
     } else {
       // Add mode
-      title.textContent = 'Add Prompt';
+      title.textContent = "Add Prompt";
       delete saveBtn.dataset.promptId;
     }
 
-    modal.style.display = 'flex';
+    modal.style.display = "flex";
 
     // Attach event listeners
-    cancelBtn.onclick = () => modal.style.display = 'none';
+    cancelBtn.onclick = () => (modal.style.display = "none");
     saveBtn.onclick = () => this.savePrompt();
 
     // Close modal if clicking outside of it
@@ -449,78 +465,85 @@ class CHETApplication {
       if (event.target == modal) {
         modal.style.display = "none";
       }
-    }
+    };
   }
 
   async savePrompt() {
-    const name = document.getElementById('prompt-name').value;
-    const content = document.getElementById('prompt-content').value;
-    const tags = document.getElementById('prompt-tags').value.split(',').map(t => t.trim()).filter(Boolean);
-    const saveBtn = document.getElementById('save-prompt');
+    const name = document.getElementById("prompt-name").value;
+    const content = document.getElementById("prompt-content").value;
+    const tags = document
+      .getElementById("prompt-tags")
+      .value.split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const saveBtn = document.getElementById("save-prompt");
     const promptId = saveBtn.dataset.promptId;
 
     if (!name || !content) {
-      showToast('Name and content are required.', 'error');
+      showToast("Name and content are required.", "error");
       return;
     }
 
-    const method = promptId ? 'PUT' : 'POST';
+    const method = promptId ? "PUT" : "POST";
     const body = { name, content, tags };
-    const fetchUrl = promptId ? `/api/prompts/${promptId}` : '/api/prompts';
+    const fetchUrl = promptId ? `/api/prompts/${promptId}` : "/api/prompts";
 
     try {
       const response = await fetch(fetchUrl, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       if (response.ok) {
-        showToast(`Prompt ${promptId ? 'updated' : 'saved'} successfully!`, 'success');
-        document.getElementById('prompt-modal').style.display = 'none';
+        showToast(
+          `Prompt ${promptId ? "updated" : "saved"} successfully!`,
+          "success",
+        );
+        document.getElementById("prompt-modal").style.display = "none";
         await this.loadPrompts();
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to save prompt');
+        throw new Error(error.error || "Failed to save prompt");
       }
     } catch (error) {
-      ErrorHandler.handle(error, 'Save Prompt');
+      ErrorHandler.handle(error, "Save Prompt");
     }
   }
 
   showMCPModal(server = null) {
-    const modal = document.getElementById('mcp-modal');
+    const modal = document.getElementById("mcp-modal");
     if (!modal) return;
 
-    const title = document.getElementById('mcp-modal-title');
-    const nameInput = document.getElementById('mcp-name');
-    const urlInput = document.getElementById('mcp-url');
-    const apiKeyInput = document.getElementById('mcp-api-key');
-    const saveBtn = document.getElementById('save-mcp');
-    const cancelBtn = document.getElementById('cancel-mcp');
+    const title = document.getElementById("mcp-modal-title");
+    const nameInput = document.getElementById("mcp-name");
+    const urlInput = document.getElementById("mcp-url");
+    const apiKeyInput = document.getElementById("mcp-api-key");
+    const saveBtn = document.getElementById("save-mcp");
+    const cancelBtn = document.getElementById("cancel-mcp");
 
     // Reset form
-    nameInput.value = '';
-    urlInput.value = '';
-    apiKeyInput.value = '';
+    nameInput.value = "";
+    urlInput.value = "";
+    apiKeyInput.value = "";
 
     if (server) {
       // Edit mode
-      title.textContent = 'Edit MCP Server';
+      title.textContent = "Edit MCP Server";
       nameInput.value = server.name;
       urlInput.value = server.url;
-      apiKeyInput.value = server.apiKey || '';
+      apiKeyInput.value = server.apiKey || "";
       saveBtn.dataset.serverId = server.id;
     } else {
       // Add mode
-      title.textContent = 'Add MCP Server';
+      title.textContent = "Add MCP Server";
       delete saveBtn.dataset.serverId;
     }
 
-    modal.style.display = 'flex';
+    modal.style.display = "flex";
 
     // Attach event listeners
-    cancelBtn.onclick = () => modal.style.display = 'none';
+    cancelBtn.onclick = () => (modal.style.display = "none");
     saveBtn.onclick = () => this.saveMCPServer();
 
     // Close modal if clicking outside of it
@@ -532,38 +555,43 @@ class CHETApplication {
   }
 
   async saveMCPServer() {
-    const name = document.getElementById('mcp-name').value;
-    const url = document.getElementById('mcp-url').value;
-    const apiKey = document.getElementById('mcp-api-key').value;
-    const saveBtn = document.getElementById('save-mcp');
+    const name = document.getElementById("mcp-name").value;
+    const url = document.getElementById("mcp-url").value;
+    const apiKey = document.getElementById("mcp-api-key").value;
+    const saveBtn = document.getElementById("save-mcp");
     const serverId = saveBtn.dataset.serverId;
 
     if (!name || !url) {
-      showToast('Name and URL are required.', 'error');
+      showToast("Name and URL are required.", "error");
       return;
     }
 
-    const method = serverId ? 'PUT' : 'POST';
+    const method = serverId ? "PUT" : "POST";
     const body = { name, url, apiKey };
-    const fetchUrl = serverId ? `/api/mcp-servers/${serverId}` : '/api/mcp-servers';
+    const fetchUrl = serverId
+      ? `/api/mcp-servers/${serverId}`
+      : "/api/mcp-servers";
 
     try {
       const response = await fetch(fetchUrl, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       if (response.ok) {
-        showToast(`Server ${serverId ? 'updated' : 'saved'} successfully!`, 'success');
-        document.getElementById('mcp-modal').style.display = 'none';
+        showToast(
+          `Server ${serverId ? "updated" : "saved"} successfully!`,
+          "success",
+        );
+        document.getElementById("mcp-modal").style.display = "none";
         await this.loadMCPServers();
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to save server');
+        throw new Error(error.error || "Failed to save server");
       }
     } catch (error) {
-      ErrorHandler.handle(error, 'Save MCP Server');
+      ErrorHandler.handle(error, "Save MCP Server");
     }
   }
 
@@ -572,24 +600,26 @@ class CHETApplication {
   }
 
   async deleteMCPServer(serverId, serverName) {
-    if (!confirm(`Are you sure you want to delete the server "${serverName}"?`)) {
+    if (
+      !confirm(`Are you sure you want to delete the server "${serverName}"?`)
+    ) {
       return;
     }
 
     try {
       const response = await fetch(`/api/mcp-servers/${serverId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (response.ok) {
-        showToast('Server deleted successfully!', 'success');
+        showToast("Server deleted successfully!", "success");
         await this.loadMCPServers();
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to delete server');
+        throw new Error(error.error || "Failed to delete server");
       }
     } catch (error) {
-      ErrorHandler.handle(error, 'Delete MCP Server');
+      ErrorHandler.handle(error, "Delete MCP Server");
     }
   }
 
@@ -604,14 +634,20 @@ class CHETApplication {
   }
 
   // API for external access to app functionality
-  getThemeManager() { return this.themeManager; }
-  getModelManager() { return this.modelManager; }
-  getChatManager() { return this.chatManager; }
+  getThemeManager() {
+    return this.themeManager;
+  }
+  getModelManager() {
+    return this.modelManager;
+  }
+  getChatManager() {
+    return this.chatManager;
+  }
 }
 
 // Initialize the application
 let app;
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   app = new CHETApplication();
 });
 

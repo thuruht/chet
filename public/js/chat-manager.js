@@ -1,4 +1,3 @@
-
 /**
  * Chat Management Module
  * Handles chat UI, messaging, and streaming responses
@@ -7,10 +6,10 @@
 class ChatManager {
   constructor(modelManager) {
     this.modelManager = modelManager;
-    this.chatMessages = document.getElementById('chat-messages');
-    this.userInput = document.getElementById('user-input');
-    this.sendButton = document.getElementById('send-button');
-    this.typingIndicator = document.getElementById('typing-indicator');
+    this.chatMessages = document.getElementById("chat-messages");
+    this.userInput = document.getElementById("user-input");
+    this.sendButton = document.getElementById("send-button");
+    this.typingIndicator = document.getElementById("typing-indicator");
     this.conversationHistory = [];
     this.sessionId = null;
 
@@ -27,48 +26,48 @@ class ChatManager {
   }
 
   loadSessionId() {
-    this.sessionId = sessionStorage.getItem('chet-session-id');
+    this.sessionId = sessionStorage.getItem("chet-session-id");
     if (!this.sessionId) {
       this.sessionId = crypto.randomUUID();
-      sessionStorage.setItem('chet-session-id', this.sessionId);
+      sessionStorage.setItem("chet-session-id", this.sessionId);
     }
   }
 
   setupEventListeners() {
     // Send button
     if (this.sendButton) {
-      this.sendButton.addEventListener('click', () => this.sendMessage());
+      this.sendButton.addEventListener("click", () => this.sendMessage());
     }
 
     // Enter key to send
     if (this.userInput) {
-      this.userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+      this.userInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
           this.sendMessage();
         }
       });
 
       // Auto-resize textarea
-      this.userInput.addEventListener('input', () => {
-        this.userInput.style.height = 'auto';
-        this.userInput.style.height = this.userInput.scrollHeight + 'px';
+      this.userInput.addEventListener("input", () => {
+        this.userInput.style.height = "auto";
+        this.userInput.style.height = this.userInput.scrollHeight + "px";
       });
     }
 
     // Clear chat button
-    const clearButton = document.getElementById('clear-chat');
+    const clearButton = document.getElementById("clear-chat");
     if (clearButton) {
-      clearButton.addEventListener('click', () => this.clearChat());
+      clearButton.addEventListener("click", () => this.clearChat());
     }
   }
 
   async fetchHistory() {
     try {
-      const response = await fetch('/api/chat', {
-        method: 'GET',
+      const response = await fetch("/api/chat", {
+        method: "GET",
         headers: {
-          'X-Session-Id': this.sessionId,
+          "X-Session-Id": this.sessionId,
         },
       });
 
@@ -94,14 +93,14 @@ class ChatManager {
         this.displayMessage(message, false);
       });
     } catch (error) {
-      console.error('Failed to fetch history:', error);
+      console.error("Failed to fetch history:", error);
       this.conversationHistory = [];
     }
   }
 
   displayWelcomeMessage() {
     const welcomeMessage = {
-      role: 'assistant',
+      role: "assistant",
       content: `Hello! I'm C.H.E.T. (Chat Helper for (almost) Every Task). I'm here to help you with a wide variety of tasks, from coding and analysis to creative writing and problem-solving.
 
 ✨ **What I can help with:**
@@ -116,7 +115,7 @@ class ChatManager {
 - Switch between specialized models for different tasks
 - Save useful prompts for later reuse
 
-What would you like to work on today?`
+What would you like to work on today?`,
     };
 
     this.displayMessage(welcomeMessage, false);
@@ -129,18 +128,18 @@ What would you like to work on today?`
     const currentModel = this.modelManager.getCurrentModel();
     if (!currentModel) {
       if (window.showToast) {
-        window.showToast('Please select a model first', 'error');
+        window.showToast("Please select a model first", "error");
       }
       return;
     }
 
     // Clear input and disable send button
-    this.userInput.value = '';
-    this.userInput.style.height = 'auto';
+    this.userInput.value = "";
+    this.userInput.style.height = "auto";
     this.setSendingState(true);
 
     // Display user message immediately
-    const userMessage = { role: 'user', content: message };
+    const userMessage = { role: "user", content: message };
     this.displayMessage(userMessage, false);
 
     // Show typing indicator
@@ -151,27 +150,29 @@ What would you like to work on today?`
       this.hideTypingIndicator();
       this.setSendingState(false);
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error("Chat error:", error);
       this.hideTypingIndicator();
-      this.displayErrorMessage('Failed to get response from AI. Please try again.');
+      this.displayErrorMessage(
+        "Failed to get response from AI. Please try again.",
+      );
       this.setSendingState(false);
     }
   }
 
   async streamChatResponse(message, model) {
     const parameters = this.modelManager.getCurrentParameters();
-    
+
     const requestBody = {
       content: message,
       model: model.key,
       ...parameters,
     };
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
+    const response = await fetch("/api/chat", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-Session-Id': this.sessionId,
+        "Content-Type": "application/json",
+        "X-Session-Id": this.sessionId,
       },
       body: JSON.stringify(requestBody),
     });
@@ -181,15 +182,15 @@ What would you like to work on today?`
     }
 
     // Create assistant message element
-    const assistantMessage = { role: 'assistant', content: '' };
+    const assistantMessage = { role: "assistant", content: "" };
     const messageElement = this.displayMessage(assistantMessage, true);
-    const contentElement = messageElement.querySelector('.message-content p');
+    const contentElement = messageElement.querySelector(".message-content p");
 
     // Handle streaming response
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let responseText = '';
-    let sseBuffer = '';
+    let responseText = "";
+    let sseBuffer = "";
 
     try {
       while (true) {
@@ -197,22 +198,21 @@ What would you like to work on today?`
         if (done) break;
 
         sseBuffer += decoder.decode(value, { stream: true });
-        
+
         // Process complete lines
         let newlineIndex;
-        while ((newlineIndex = sseBuffer.indexOf('\n')) !== -1) {
+        while ((newlineIndex = sseBuffer.indexOf("\n")) !== -1) {
           const line = sseBuffer.slice(0, newlineIndex).trim();
           sseBuffer = sseBuffer.slice(newlineIndex + 1);
-          
+
           if (!line) continue;
 
           try {
-
             let jsonStr = line;
-            if (line.startsWith('data: ')) {
+            if (line.startsWith("data: ")) {
               jsonStr = line.substring(6);
             }
-            if (jsonStr === '[DONE]') continue;
+            if (jsonStr === "[DONE]") continue;
             const jsonData = JSON.parse(jsonStr);
 
             if (jsonData.response) {
@@ -224,7 +224,7 @@ What would you like to work on today?`
               this.updateMessageMetadata(messageElement, jsonData.meta);
             }
           } catch (parseError) {
-            console.warn('Failed to parse SSE line:', line, parseError);
+            console.warn("Failed to parse SSE line:", line, parseError);
           }
         }
       }
@@ -237,31 +237,33 @@ What would you like to work on today?`
   }
 
   displayMessage(message, isStreaming = false) {
-    const messageDiv = document.createElement('div');
+    const messageDiv = document.createElement("div");
     messageDiv.className = `message ${message.role}`;
 
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = message.role === 'user' ? '👤' : '🤖';
+    const avatar = document.createElement("div");
+    avatar.className = "message-avatar";
+    avatar.textContent = message.role === "user" ? "👤" : "🤖";
 
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    
-    const text = document.createElement('p');
+    const content = document.createElement("div");
+    content.className = "message-content";
+
+    const text = document.createElement("p");
     text.textContent = message.content;
     content.appendChild(text);
 
     // Add metadata container for assistant messages
-    if (message.role === 'assistant') {
-      const meta = document.createElement('div');
-      meta.className = 'message-meta';
+    if (message.role === "assistant") {
+      const meta = document.createElement("div");
+      meta.className = "message-meta";
       content.appendChild(meta);
 
       // Add save button
-      const saveButton = document.createElement('button');
-      saveButton.className = 'save-response-btn';
-  saveButton.textContent = '💾 Save Response';
-  saveButton.addEventListener('click', () => this.saveResponse(message.content));
+      const saveButton = document.createElement("button");
+      saveButton.className = "save-response-btn";
+      saveButton.textContent = "💾 Save Response";
+      saveButton.addEventListener("click", () =>
+        this.saveResponse(message.content),
+      );
       content.appendChild(saveButton);
     }
 
@@ -277,17 +279,18 @@ What would you like to work on today?`
   }
 
   updateMessageMetadata(messageElement, metadata) {
-    const metaElement = messageElement.querySelector('.message-meta');
+    const metaElement = messageElement.querySelector(".message-meta");
     if (metaElement) {
       // Clear existing metadata
-      while (metaElement.firstChild) metaElement.removeChild(metaElement.firstChild);
-      const icon = document.createElement('span');
-      icon.className = 'meta-icon';
-      icon.textContent = '🤖';
-      const details = document.createElement('span');
-      details.textContent = `Model: ${metadata.modelKey} • Tokens: ${metadata.params?.maxTokens || '-'} • Temp: ${metadata.params?.temperature || '-'}`;
-      const ts = document.createElement('span');
-      ts.className = 'timestamp';
+      while (metaElement.firstChild)
+        metaElement.removeChild(metaElement.firstChild);
+      const icon = document.createElement("span");
+      icon.className = "meta-icon";
+      icon.textContent = "🤖";
+      const details = document.createElement("span");
+      details.textContent = `Model: ${metadata.modelKey} • Tokens: ${metadata.params?.maxTokens || "-"} • Temp: ${metadata.params?.temperature || "-"}`;
+      const ts = document.createElement("span");
+      ts.className = "timestamp";
       ts.textContent = new Date().toLocaleTimeString();
       metaElement.appendChild(icon);
       metaElement.appendChild(details);
@@ -297,28 +300,28 @@ What would you like to work on today?`
 
   displayErrorMessage(errorMessage) {
     const errorMsg = {
-      role: 'assistant',
-      content: `❌ Error: ${errorMessage}`
+      role: "assistant",
+      content: `❌ Error: ${errorMessage}`,
     };
     this.displayMessage(errorMsg, false);
   }
 
   showTypingIndicator() {
     if (this.typingIndicator) {
-      this.typingIndicator.style.display = 'block';
+      this.typingIndicator.style.display = "block";
     }
   }
 
   hideTypingIndicator() {
     if (this.typingIndicator) {
-      this.typingIndicator.style.display = 'none';
+      this.typingIndicator.style.display = "none";
     }
   }
 
   setSendingState(isSending) {
     if (this.sendButton) {
       this.sendButton.disabled = isSending;
-      this.sendButton.textContent = isSending ? '🔄 Sending...' : '📤 Send';
+      this.sendButton.textContent = isSending ? "🔄 Sending..." : "📤 Send";
     }
     if (this.userInput) {
       this.userInput.disabled = isSending;
@@ -333,10 +336,10 @@ What would you like to work on today?`
 
   async clearChat() {
     try {
-      const response = await fetch('/api/chat', {
-        method: 'DELETE',
+      const response = await fetch("/api/chat", {
+        method: "DELETE",
         headers: {
-          'X-Session-Id': this.sessionId,
+          "X-Session-Id": this.sessionId,
         },
       });
 
@@ -353,50 +356,50 @@ What would you like to work on today?`
       this.displayWelcomeMessage();
 
       if (window.showToast) {
-        window.showToast('Chat cleared', 'info', 1000);
+        window.showToast("Chat cleared", "info", 1000);
       }
     } catch (error) {
-      console.error('Failed to clear chat:', error);
+      console.error("Failed to clear chat:", error);
       if (window.showToast) {
-        window.showToast('Failed to clear chat on server', 'error');
+        window.showToast("Failed to clear chat on server", "error");
       }
     }
   }
 
   async saveResponse(content) {
     try {
-      const response = await fetch('/api/save-file', {
-        method: 'POST',
+      const response = await fetch("/api/save-file", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Id': this.sessionId,
+          "Content-Type": "application/json",
+          "X-Session-Id": this.sessionId,
         },
         body: JSON.stringify({
-          filename: `chat-response-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`,
+          filename: `chat-response-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`,
           content: content,
-          contentType: 'text/plain'
+          contentType: "text/plain",
         }),
       });
 
       if (response.ok) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `chat-response-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+        a.download = `chat-response-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`;
         a.click();
         URL.revokeObjectURL(url);
 
         if (window.showToast) {
-          window.showToast('Response saved successfully!', 'success');
+          window.showToast("Response saved successfully!", "success");
         }
       } else {
-        throw new Error('Failed to save response');
+        throw new Error("Failed to save response");
       }
     } catch (error) {
-      console.error('Save error:', error);
+      console.error("Save error:", error);
       if (window.showToast) {
-        window.showToast('Failed to save response', 'error');
+        window.showToast("Failed to save response", "error");
       }
     }
   }
