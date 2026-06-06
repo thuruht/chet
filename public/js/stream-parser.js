@@ -6,7 +6,7 @@ export function processChunk(sseBuffer, chunk) {
   sseBuffer += chunk;
   const lines = [];
   let newlineIndex;
-  while ((newlineIndex = sseBuffer.indexOf('\n')) !== -1) {
+  while ((newlineIndex = sseBuffer.indexOf("\n")) !== -1) {
     const line = sseBuffer.slice(0, newlineIndex).trim();
     sseBuffer = sseBuffer.slice(newlineIndex + 1);
     if (line) lines.push(line);

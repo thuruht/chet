@@ -1,13 +1,29 @@
 /**
  * Type definitions for the C.H.E.T. application.
  */
-import { Agent } from 'agents';
-import type { TypedEnv } from '@cloudflare/opaque-ts';
+import { Agent } from "agents";
 
 /**
  * Application environment definition with typed bindings
  */
-export type Env = TypedEnv<{
+import { D1Database, VectorizeIndex } from "@cloudflare/workers-types";
+
+export interface Env {
+  /**
+   * D1 Database for Users and Sessions
+   */
+  DB: D1Database;
+
+  /**
+   * Vectorize index for RAG
+   */
+  VECTORIZE_INDEX: VectorizeIndex;
+
+  /**
+   * Email sending beta binding
+   */
+  SEND_EMAIL: any;
+
   /**
    * Binding for the Workers AI API.
    */
@@ -22,7 +38,8 @@ export type Env = TypedEnv<{
    * KV namespace for storing prompts, MCP servers, and other data.
    */
   CHET_KV: KVNamespace;
-}>;
+  ChetAgent: DurableObjectNamespace<import("./chet-agent.js").ChetAgentV2>;
+}
 
 /**
  * Represents a chat message.
@@ -34,7 +51,7 @@ export interface ChatMessage {
   tool_call_id?: string;
   tool_calls?: Array<{
     id: string;
-    type: 'function';
+    type: "function";
     function: {
       name: string;
       arguments: string;

@@ -1,5 +1,5 @@
-import { Hono } from 'hono';
-import type { Env, SavedPrompt } from '../lib/types.js';
+import { Hono } from "hono";
+import type { Env, SavedPrompt } from "../lib/types.js";
 
 // Create a router for prompts endpoints
 const promptsRouter = new Hono<{ Bindings: Env }>();
@@ -7,7 +7,7 @@ const promptsRouter = new Hono<{ Bindings: Env }>();
 /**
  * GET /api/prompts - Get all saved prompts
  */
-promptsRouter.get('/', async (c) => {
+promptsRouter.get("/", async (c) => {
   try {
     const { keys } = await c.env.CHET_KV.list({ prefix: "prompt:" });
     const prompts: SavedPrompt[] = [];
@@ -29,10 +29,14 @@ promptsRouter.get('/', async (c) => {
 /**
  * POST /api/prompts - Create a new prompt
  */
-promptsRouter.post('/', async (c) => {
+promptsRouter.post("/", async (c) => {
   try {
-    const { name, content, tags } = await c.req.json() as { name: string; content: string; tags: string[] };
-    
+    const { name, content, tags } = (await c.req.json()) as {
+      name: string;
+      content: string;
+      tags: string[];
+    };
+
     if (!name || !content) {
       return c.json({ error: "Name and content are required" }, 400);
     }
@@ -58,15 +62,23 @@ promptsRouter.post('/', async (c) => {
 /**
  * PUT /api/prompts - Update an existing prompt
  */
-promptsRouter.put('/', async (c) => {
+promptsRouter.put("/", async (c) => {
   try {
-    const { id, name, content, tags } = await c.req.json() as { id: string; name?: string; content?: string; tags?: string[] };
-    
+    const { id, name, content, tags } = (await c.req.json()) as {
+      id: string;
+      name?: string;
+      content?: string;
+      tags?: string[];
+    };
+
     if (!id) {
       return c.json({ error: "Prompt ID is required" }, 400);
     }
 
-    const existingPrompt = await c.env.CHET_KV.get(`prompt:${id}`, "json") as SavedPrompt | null;
+    const existingPrompt = (await c.env.CHET_KV.get(
+      `prompt:${id}`,
+      "json",
+    )) as SavedPrompt | null;
     if (!existingPrompt) {
       return c.json({ error: "Prompt not found" }, 404);
     }
@@ -91,10 +103,10 @@ promptsRouter.put('/', async (c) => {
 /**
  * DELETE /api/prompts - Delete a prompt
  */
-promptsRouter.delete('/', async (c) => {
+promptsRouter.delete("/", async (c) => {
   try {
-    const id = c.req.query('id');
-    
+    const id = c.req.query("id");
+
     if (!id) {
       return c.json({ error: "Prompt ID is required" }, 400);
     }
