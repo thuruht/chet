@@ -12,6 +12,7 @@ export default defineConfig({
       },
       preserveEntrySignatures: 'strict',
       external: ['agents'],
+      preserveEntrySignatures: 'strict',
     },
     target: 'es2022',
     minify: false,
